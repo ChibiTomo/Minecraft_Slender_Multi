@@ -33,7 +33,7 @@ public class Slender extends Plugin {
 	private static final String VIEW_DIST_PATH = "view_dist";
 
 	private Slenderman slenderman;
-	private List<Integer[]> pagesLocation;
+	private Map<Integer, Integer[]> pagesLocation;
 	private List<String> messages;
 	private List<Page> pages;
 
@@ -64,7 +64,7 @@ public class Slender extends Plugin {
 		damageMap = new HashMap<Player, Integer>();
 		pages = new ArrayList<Page>();
 		messages = new ArrayList<String>();
-		pagesLocation = new ArrayList<Integer[]>();
+		pagesLocation = new HashMap<Integer, Integer[]>();
 		
 		ScoreboardManager manager = Bukkit.getScoreboardManager();
 		scoreboard = manager.getNewScoreboard();
@@ -164,7 +164,18 @@ public class Slender extends Plugin {
 		viewDist = config.getInt(VIEW_DIST_PATH);
 
 		messages = config.getStringList(PAGE_MESSAGES_PATH);
-		pagesLocation = (List<Integer[]>) config.getList(PAGE_LOCATION_PATH);
+		
+		int i = 0;
+		List<Integer> loc = config.getIntegerList(PAGE_LOCATION_PATH + "." + i );
+		while (!loc.isEmpty()) {
+			Integer[] array = new Integer[4];
+			loc.toArray(array);
+			pagesLocation.put(i, array);
+			i++;
+			loc = config.getIntegerList(PAGE_LOCATION_PATH + "." + i );
+		}
+		
+		
 		damageShedulers = new HashMap<Player, Integer>();
 
 		totalPages = Math.min(totalPages, pagesLocation.size());
@@ -191,12 +202,7 @@ public class Slender extends Plugin {
 			if (nbMessage > 0) {
 				message = messages.get(i % nbMessage);
 			}
-			Object o = pagesLocation.get(i);
-			@SuppressWarnings("unchecked")
-			ArrayList<Integer> a = (ArrayList<Integer>) o;
-			info(a.toString());
-			Integer[] array = new Integer[4];
-			a.toArray(array);
+			Integer[] array = pagesLocation.get(i);
 			Location loc = new Location(world, array[0], array[1], array[2]);
 			BlockFace face = int2BlockFace(array[3]);
 			Location frameLoc = fLoc2BLoc(loc, face);
@@ -421,7 +427,7 @@ public class Slender extends Plugin {
 			throw new Exception("Error while placing frame: coord are null");
 		}
 
-		pagesLocation.add(coord);
+		pagesLocation.put(pagesLocation.size(), coord);
 		getConfig().set(PAGE_LOCATION_PATH, pagesLocation);
 		saveConfig();
 	}
