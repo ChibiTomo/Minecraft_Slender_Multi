@@ -15,7 +15,9 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.ItemFrame;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
@@ -178,7 +180,7 @@ public class Slender extends Plugin {
 		damageShedulers = new HashMap<Player, Integer>();
 
 		totalPages = Math.min(totalPages, pagesLocation.size());
-
+		freePageLocations();
 		placePages();
 		this.gameIsStarted = true;
 		eternal_night_on();
@@ -191,6 +193,13 @@ public class Slender extends Plugin {
 		}
 		
 		server.broadcastMessage("Start a new game.");
+	}
+
+	private void freePageLocations() {
+		for (Integer[] coord : pagesLocation.values()) {
+			Location loc = new Location(slenderman.getPlayer().getWorld(), coord[0], coord[1], coord[2]);
+			removeEntityAt(loc);
+		}
 	}
 
 	private void placePages() {
@@ -533,6 +542,9 @@ public class Slender extends Plugin {
 		b1.setTypeId(2);
 		b2.setTypeId(2);
 		b3.setTypeId(2);
+		
+		Location loc = new Location(world, coord[0], coord[1], coord[2]);
+		removeEntityAt(loc);
 
 		ItemFrame i = block.getWorld().spawn(block.getLocation(),
 				ItemFrame.class);
@@ -546,6 +558,36 @@ public class Slender extends Plugin {
 		}
 
 		return coord;
+	}
+
+	private void removeEntityAt(Location loc) {
+		World world = loc.getWorld();
+		Entity e = getEntityAt(loc);
+		info("entity: " + e);
+//		while (e != null) {
+//			e.teleport(new Location(world, 0, -10, 0));
+//			e.remove();
+//			loc.getChunk().unload(true);
+//			loc.getChunk().load();
+//			e = getEntityAt(loc);
+//			info("entity: " + e);
+//		}
+	}
+
+	private Entity getEntityAt(Location loc) {
+		World world = loc.getWorld();
+		for (Entity e : world.getEntities()) {
+			if (e instanceof LivingEntity) {
+				continue;
+			}
+			Location eLoc = e.getLocation();
+			if (loc.getBlockX() == eLoc.getBlockX() 
+					&& loc.getBlockY() == eLoc.getBlockY()
+					&& loc.getBlockZ() == eLoc.getBlockZ()) {
+				return e;
+			}
+		}
+		return null;
 	}
 
 	public void addMessage(String msg) {
