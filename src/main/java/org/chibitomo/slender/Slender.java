@@ -62,7 +62,6 @@ public class Slender extends Plugin {
 
 		damageShedulers = new HashMap<Player, Integer>();
 		damageMap = new HashMap<Player, Integer>();
-		pages = new ArrayList<Page>();
 		messages = new ArrayList<String>();
 		pagesLocation = new HashMap<Integer, Integer[]>();
 		
@@ -152,8 +151,8 @@ public class Slender extends Plugin {
 		getServer().broadcastMessage(message);
 	}
 
-	@SuppressWarnings("unchecked")
 	public void gameStart(Player player) {
+		pages = new ArrayList<Page>();
 		List<Player> players = player.getWorld().getPlayers();
 		int playerId = (int) (Math.random() * players.size());
 		slenderman.setSlenderman(players.get(playerId));
@@ -202,8 +201,21 @@ public class Slender extends Plugin {
 			if (nbMessage > 0) {
 				message = messages.get(i % nbMessage);
 			}
-			Integer[] array = pagesLocation.get(i);
-			Location loc = new Location(world, array[0], array[1], array[2]);
+			
+			
+			Location loc = null;
+			
+			Integer[] array = new Integer[4];
+			while (loc == null) {
+				int pageId = (int) (Math.random() * pagesLocation.size());
+				array = pagesLocation.get(pageId);
+				loc = new Location(world, array[0], array[1], array[2]);
+				for (Page p : pages) {
+					if (p.getLoc().equals(loc)) {
+						loc = null;
+					}
+				}
+			}
 			BlockFace face = int2BlockFace(array[3]);
 			Location frameLoc = fLoc2BLoc(loc, face);
 			Page page = new Page(i, loc, message);

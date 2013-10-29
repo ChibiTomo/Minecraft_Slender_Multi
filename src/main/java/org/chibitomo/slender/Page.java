@@ -36,4 +36,8 @@ public class Page {
 				&& loc.getBlockY() == location.getBlockY()
 				&& loc.getBlockZ() == location.getBlockZ();
 	}
+
+	public Location getLoc() {
+		return loc;
+	}
 }
