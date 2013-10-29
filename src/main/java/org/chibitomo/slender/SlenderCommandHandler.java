@@ -52,8 +52,8 @@ public class SlenderCommandHandler extends CommandHandler {
 			sendError(sender, "To few arguments.");
 			return false;
 		}
-
-		// ((Slender) plugin).addMessage(args[0]);
+		
+		((Slender) plugin).addMessage(args[0]);
 
 		sender.sendMessage("New message added: " + args[0]);
 		return true;

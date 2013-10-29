@@ -2,10 +2,10 @@ package org.chibitomo.slender;
 
 import java.util.List;
 
-import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Player;
+import org.bukkit.scoreboard.Team;
 
 public class Slenderman {
 	private Player slenderman;
@@ -13,10 +13,11 @@ public class Slenderman {
 	private Boolean isVisible = true;
 	private Slender plugin;
 	private boolean isAlreadySeen = false;
-	private String oldName;
+	private Team team;
 
 	public Slenderman(Slender plugin) {
 		this.plugin = plugin;
+		team = plugin.slenderTeam;
 	}
 
 	public boolean isSlenderman(Player player) {
@@ -34,18 +35,14 @@ public class Slenderman {
 	public void setSlenderman(Player player) {
 		if (slenderman != null) {
 			setVisibility(true);
-			plugin.setPlayerName(slenderman, oldName);
+			team.removePlayer(slenderman);
 		}
 		if (!isSlenderman(player)) {
 			slenderman = player;
 			if (slenderman != null) {
+				team.addPlayer(slenderman);
 				// TODO: Give object in hand.
 				slenderman.sendMessage("You are the Slenderman");
-				// CraftPlayer p = ((CraftPlayer) slenderman);
-				// EntityPlayer ep = p.getHandle();
-				// oldName = ep.getName();
-				plugin.setPlayerName(slenderman, ChatColor.RED + "Slenderman"
-						+ ChatColor.WHITE);
 			}
 		}
 	}

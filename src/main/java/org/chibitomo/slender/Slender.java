@@ -4,8 +4,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Location;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -15,6 +19,9 @@ import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.scoreboard.Scoreboard;
+import org.bukkit.scoreboard.ScoreboardManager;
+import org.bukkit.scoreboard.Team;
 import org.bukkit.util.Vector;
 import org.chibitomo.plugin.Plugin;
 
@@ -36,10 +43,14 @@ public class Slender extends Plugin {
 	private int etenal_night_runnable_id;
 	private int viewDist;
 	private Map<Player, Integer> damageShedulers;
+	
 	public Map<Player, Integer> damageMap;
-	public List<Player> deadPlayers;
+	public Team slenderTeam;
+	public Team childrenTeam;
+	public Team deadsTeam;
 
 	public boolean addPage = false;
+	private Scoreboard scoreboard;
 
 	@Override
 	protected void init() {
@@ -54,8 +65,27 @@ public class Slender extends Plugin {
 		pages = new ArrayList<Page>();
 		messages = new ArrayList<String>();
 		pagesLocation = new ArrayList<Integer[]>();
-		deadPlayers = new ArrayList<Player>();
-
+		
+		ScoreboardManager manager = Bukkit.getScoreboardManager();
+		scoreboard = manager.getNewScoreboard();
+		
+		slenderTeam = scoreboard.registerNewTeam("Slenderman");
+		slenderTeam.setDisplayName(ChatColor.RED + "Slenderman");
+		slenderTeam.setPrefix(ChatColor.RED + "");
+		slenderTeam.setSuffix(" Slenderman" + ChatColor.RESET);
+		
+		childrenTeam = scoreboard.registerNewTeam("Children");
+		childrenTeam.setDisplayName(ChatColor.GREEN + "Children");
+		childrenTeam.setAllowFriendlyFire(false);
+		childrenTeam.setPrefix(ChatColor.GREEN + "");
+		childrenTeam.setSuffix(" Children" + ChatColor.RESET);
+		
+		deadsTeam = scoreboard.registerNewTeam("Deads");
+		deadsTeam.setDisplayName(ChatColor.AQUA + "Deads");
+		deadsTeam.setCanSeeFriendlyInvisibles(true);
+		deadsTeam.setPrefix(ChatColor.AQUA + "");
+		deadsTeam.setSuffix(" Dead" + ChatColor.RESET);
+				
 		slenderman = new Slenderman(this);
 	}
 
@@ -136,19 +166,23 @@ public class Slender extends Plugin {
 		messages = config.getStringList(PAGE_MESSAGES_PATH);
 		pagesLocation = (List<Integer[]>) config.getList(PAGE_LOCATION_PATH);
 		damageShedulers = new HashMap<Player, Integer>();
-		deadPlayers = new ArrayList<Player>();
 
 		totalPages = Math.min(totalPages, pagesLocation.size());
-
-		info(pagesLocation.toString());
 
 		placePages();
 		this.gameIsStarted = true;
 		eternal_night_on();
+		
+		for (Player p : server.getOnlinePlayers()) {
+			if (!slenderman.isSlenderman(p)) {
+				childrenTeam.addPlayer(p);
+			}
+			p.setScoreboard(scoreboard);
+		}
+		
 		server.broadcastMessage("Start a new game.");
 	}
 
-	@SuppressWarnings("unchecked")
 	private void placePages() {
 		World world = slenderman.getPlayer().getWorld();
 		for (int i = 0; i < totalPages; i++) {
@@ -158,9 +192,13 @@ public class Slender extends Plugin {
 				message = messages.get(i % nbMessage);
 			}
 			Object o = pagesLocation.get(i);
+			@SuppressWarnings("unchecked")
 			ArrayList<Integer> a = (ArrayList<Integer>) o;
-			Location loc = new Location(world, a.get(0), a.get(1), a.get(2));
-			BlockFace face = int2BlockFace(a.get(3));
+			info(a.toString());
+			Integer[] array = new Integer[4];
+			a.toArray(array);
+			Location loc = new Location(world, array[0], array[1], array[2]);
+			BlockFace face = int2BlockFace(array[3]);
 			Location frameLoc = fLoc2BLoc(loc, face);
 			Page page = new Page(i, loc, message);
 			pages.add(page);
@@ -207,7 +245,10 @@ public class Slender extends Plugin {
 
 		for (Player p : server.getOnlinePlayers()) {
 			setPlayerVisibility(p, true);
+
+			p.setScoreboard(server.getScoreboardManager().getNewScoreboard());
 		}
+		
 		server.broadcastMessage("Stop current game.");
 	}
 
@@ -346,7 +387,7 @@ public class Slender extends Plugin {
 			if (player.getMaxHealth() != maxHealth) {
 				player.setMaxHealth(maxHealth);
 			}
-			if (player.isDead()) {
+			if (isDead(player)) {
 				damageMap.put(player, -1);
 			}
 			int amount = damageMap.get(player);
@@ -385,20 +426,39 @@ public class Slender extends Plugin {
 		saveConfig();
 	}
 
+	private boolean isDead(Player player) {
+		return player.isDead() || isInDeadsTeam(player);
+	}
+
+	public boolean isInDeadsTeam(Player player) {
+		Set<OfflinePlayer> players = deadsTeam.getPlayers();
+		OfflinePlayer ofp = server.getOfflinePlayer(player.getName());
+		return players.contains(ofp);
+	}
+
 	private void addDeadPlayer(Player player) {
-		damageMap.put(player, -1);
-		deadPlayers.add(player);
-
-		World world = player.getWorld();
-		List<Player> players = world.getPlayers();
-
+		deadsTeam.addPlayer(player);
+		
 		setPlayerVisibility(player, false);
-
-		for (Player p : players) {
-			if (deadPlayers.contains(p)) {
-				p.showPlayer(player);
+		
+		Set<OfflinePlayer> players = deadsTeam.getPlayers();
+		for (OfflinePlayer p1 : players) {
+			if (!p1.isOnline()) {
+				continue;
 			}
+			Player player1 = server.getPlayer(p1.getName());
+			for (OfflinePlayer p2 : players) {
+				if (!p2.isOnline()) {
+					continue;
+				}
+				Player player2 = server.getPlayer(p2.getName());
+				if (!player2.equals(player1)) {
+					player1.showPlayer(player2);
+				}
+			}			
 		}
+		
+		damageMap.put(player, -1);
 	}
 
 	private Integer[] placeFrame(Block block, BlockFace face, boolean withPaper) {
@@ -488,25 +548,9 @@ public class Slender extends Plugin {
 		}
 	}
 
-	public void setPlayerName(Player player, String name) {
-		player.setDisplayName(name);
-		// EntityPlayer ep = ((CraftPlayer) player).getHandle();
-		// String originalName = ep.getName();
-		// ep.name = name;
-		//
-		// for (Player p : server.getOnlinePlayers()) {
-		// EntityPlayer op = ((CraftPlayer) p).getHandle();
-		// if (op.equals(ep)) {
-		// continue;
-		// }
-		// op.playerConnection.sendPacket(new Packet20NamedEntitySpawn(ep));
-		// }
-		// ep.name = originalName;
-	}
-
 	public void checkDead() {
-		List<Player> players = slenderman.getPlayer().getWorld().getPlayers();
-		if (deadPlayers.size() == players.size() - 1) {
+		Player[] players = server.getOnlinePlayers();
+		if (deadsTeam.getPlayers().size() == players.length - 1) {
 			server.getScheduler().runTaskLater(this, new Runnable() {
 				public void run() {
 					endGame(true);

@@ -180,7 +180,7 @@ public class SlenderEventHandler extends EventHandler {
 		PlayerDeathEvent event = (PlayerDeathEvent) givenEvent;
 		Player player = event.getEntity();
 		((Slender) plugin).info(player.toString());
-		if (((Slender) plugin).deadPlayers.contains(player)) {
+		if (((Slender) plugin).isInDeadsTeam(player)) {
 			event.setDeathMessage("Slenderman cought " + player.getName()
 					+ "...");
 		}
