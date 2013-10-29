@@ -1,0 +1,28 @@
+name: Slender Multi
+main: org.chibitomo.slender.Slender
+version: 0.0.1
+commands:
+    set_slenderman:
+       description: Set the new Slenderman.
+       usage: /set_slenderman [PLAYER_NAME]
+       aliases: []
+       
+    start_slenderman:
+       description: Start a new game.
+       usage: /start_slenderman
+       aliases: []
+    
+    stop_slenderman:
+       description: Stop the current game.
+       usage: /stop_slenderman
+       aliases: []
+       
+    add_page:
+       description: Add a new page location.
+       usage: /add_page
+       aliases: []
+    
+    add_message:
+       description: Add a new page message.
+       usage: /add_message <YOUR_MESSAGE>
+       aliases: []

@@ -1,0 +1,517 @@
+package org.chibitomo.slender;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.bukkit.Location;
+import org.bukkit.World;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.ItemFrame;
+import org.bukkit.entity.Player;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.util.Vector;
+import org.chibitomo.plugin.Plugin;
+
+public class Slender extends Plugin {
+	private static final String PAGE_LOCATION_PATH = "page_location";
+	private static final String PAGE_MESSAGES_PATH = "page_messages";
+	private static final String PAGE_QUANTITY_PATH = "page_qty";
+	private static final String MAX_TP_DIST_PATH = "max_tp_distance";
+	private static final String VIEW_DIST_PATH = "view_dist";
+
+	private Slenderman slenderman;
+	private List<Integer[]> pagesLocation;
+	private List<String> messages;
+	private List<Page> pages;
+
+	private int totalPages;
+	private int takenPages;
+	private boolean gameIsStarted;
+	private int etenal_night_runnable_id;
+	private int viewDist;
+	private Map<Player, Integer> damageShedulers;
+	public Map<Player, Integer> damageMap;
+	public List<Player> deadPlayers;
+
+	public boolean addPage = false;
+
+	@Override
+	protected void init() {
+		NAME = "Slender Multi";
+		EVENTPRIORITY = 1;
+
+		gameIsStarted = false;
+		etenal_night_runnable_id = -1;
+
+		damageShedulers = new HashMap<Player, Integer>();
+		damageMap = new HashMap<Player, Integer>();
+		pages = new ArrayList<Page>();
+		messages = new ArrayList<String>();
+		pagesLocation = new ArrayList<Integer[]>();
+		deadPlayers = new ArrayList<Player>();
+
+		slenderman = new Slenderman(this);
+	}
+
+	@Override
+	protected void close() {
+		if (gameIsStarted) {
+			gameStop();
+		}
+	}
+
+	@Override
+	protected void registerEventHandlers() {
+		addPluginsEventHandler(new SlenderEventHandler(this, EVENTPRIORITY));
+	}
+
+	@Override
+	protected void registerCommandHandler(String cmd) {
+		setCommandExecutor(cmd, new SlenderCommandHandler(this));
+	}
+
+	public Slenderman getSlenderman() {
+		return slenderman;
+	}
+
+	public void takePage(Player player, Entity entity) {
+		try {
+			ItemStack item = ((ItemFrame) entity).getItem();
+			if (item.getTypeId() != 339) {
+				return;
+			}
+			Location location = entity.getLocation();
+			for (Page page : pages) {
+				if (page.isLocatedAt(location) && !page.isTaken()) {
+					page.setToken(true);
+					entity.remove();
+					player.sendMessage(page.getMessage());
+					takenPages++;
+
+					checkPages();
+					return;
+				}
+			}
+			player.sendMessage("Sorry... This is not a real page...");
+		} catch (Exception e) {
+			error(e);
+		}
+	}
+
+	private void checkPages() {
+		if (takenPages != totalPages) {
+			getServer().broadcastMessage(
+					takenPages + "/" + totalPages + " pages");
+			return;
+		}
+		endGame(false);
+	}
+
+	private void endGame(Boolean slenderWon) {
+		gameStop();
+		String message = "Game is finished. Children won.";
+		if (slenderWon) {
+			message = "Game is finished. Slenderman won.";
+		}
+		getServer().broadcastMessage(message);
+	}
+
+	@SuppressWarnings("unchecked")
+	public void gameStart(Player player) {
+		List<Player> players = player.getWorld().getPlayers();
+		int playerId = (int) (Math.random() * players.size());
+		slenderman.setSlenderman(players.get(playerId));
+
+		FileConfiguration config = getConfig();
+		slenderman.setMaxTpDistance(config.getInt(MAX_TP_DIST_PATH));
+		totalPages = config.getInt(PAGE_QUANTITY_PATH);
+		viewDist = config.getInt(VIEW_DIST_PATH);
+
+		messages = config.getStringList(PAGE_MESSAGES_PATH);
+		pagesLocation = (List<Integer[]>) config.getList(PAGE_LOCATION_PATH);
+		damageShedulers = new HashMap<Player, Integer>();
+		deadPlayers = new ArrayList<Player>();
+
+		totalPages = Math.min(totalPages, pagesLocation.size());
+
+		info(pagesLocation.toString());
+
+		placePages();
+		this.gameIsStarted = true;
+		eternal_night_on();
+		server.broadcastMessage("Start a new game.");
+	}
+
+	@SuppressWarnings("unchecked")
+	private void placePages() {
+		World world = slenderman.getPlayer().getWorld();
+		for (int i = 0; i < totalPages; i++) {
+			int nbMessage = messages.size();
+			String message = "";
+			if (nbMessage > 0) {
+				message = messages.get(i % nbMessage);
+			}
+			Object o = pagesLocation.get(i);
+			ArrayList<Integer> a = (ArrayList<Integer>) o;
+			Location loc = new Location(world, a.get(0), a.get(1), a.get(2));
+			BlockFace face = int2BlockFace(a.get(3));
+			Location frameLoc = fLoc2BLoc(loc, face);
+			Page page = new Page(i, loc, message);
+			pages.add(page);
+			placeFrame(world.getBlockAt(frameLoc), face, true);
+		}
+	}
+
+	private Location fLoc2BLoc(Location loc, BlockFace face) {
+		double x = loc.getBlockX();
+		double z = loc.getBlockZ();
+		if (face.equals(BlockFace.NORTH)) {
+			z++;
+		} else if (face.equals(BlockFace.SOUTH)) {
+			z--;
+		} else if (face.equals(BlockFace.EAST)) {
+			x--;
+		} else if (face.equals(BlockFace.WEST)) {
+			x++;
+		}
+		return new Location(loc.getWorld(), x, loc.getBlockY(), z);
+	}
+
+	private BlockFace int2BlockFace(Integer i) {
+		BlockFace result = BlockFace.NORTH;
+		if (i == 1) {
+			result = BlockFace.EAST;
+		} else if (i == 2) {
+			result = BlockFace.SOUTH;
+		} else if (i == 3) {
+			result = BlockFace.WEST;
+		}
+		return result;
+	}
+
+	public void gameStop() {
+		slenderman.setSlenderman(null);
+		this.gameIsStarted = false;
+		totalPages = 0;
+		takenPages = 0;
+		eternal_night_off();
+		for (int id : damageShedulers.values()) {
+			server.getScheduler().cancelTask(id);
+		}
+
+		for (Player p : server.getOnlinePlayers()) {
+			setPlayerVisibility(p, true);
+		}
+		server.broadcastMessage("Stop current game.");
+	}
+
+	private void eternal_night_on() {
+		if (etenal_night_runnable_id != -1) {
+			return;
+		}
+		final World world = slenderman.getPlayer().getWorld();
+		etenal_night_runnable_id = server.getScheduler()
+				.scheduleSyncRepeatingTask(this, new Runnable() {
+					public void run() {
+						world.setTime(15000);
+					}
+				}, 0, 7000);
+	}
+
+	private void eternal_night_off() {
+		if (etenal_night_runnable_id == -1) {
+			return;
+		}
+		server.getScheduler().cancelTask(etenal_night_runnable_id);
+	}
+
+	public boolean gameisStarted() {
+		return gameIsStarted;
+	}
+
+	public int getViewDist() {
+		return viewDist;
+	}
+
+	public double getDist(Location loc1, Location loc2) {
+		double x = Math.pow(loc1.getX() - loc2.getX(), 2);
+		double y = Math.pow(loc1.getY() - loc2.getY(), 2);
+		double z = Math.pow(loc1.getZ() - loc2.getZ(), 2);
+		return Math.sqrt(x + y + z);
+	}
+
+	public List<Player> getNearbyPlayers(Player player, int dist) {
+		List<Player> result = new ArrayList<Player>();
+		for (Player p : server.getOnlinePlayers()) {
+			double playerDist = getDist(player.getLocation(), p.getLocation());
+			if (!player.equals(p) && playerDist <= dist) {
+				result.add(p);
+			}
+		}
+		return result;
+	}
+
+	public boolean canSeeSlenderman(Player player) {
+		if (!slenderman.isVisible()) {
+			return false;
+		}
+
+		Location eyeLoc = player.getEyeLocation();
+		Location slenderLoc = slenderman.getPlayer().getEyeLocation();
+
+		double toSlendermanDist = getDist(eyeLoc, slenderLoc);
+
+		float x = (float) (eyeLoc.getX() - slenderLoc.getX());
+		float y = (float) (eyeLoc.getY() - slenderLoc.getY());
+		float z = (float) (eyeLoc.getZ() - slenderLoc.getZ());
+		Vector toSlendermanVect = new Vector(x, y, z);
+
+		Vector eyeDir = eyeLoc.getDirection();
+		double angle = eyeDir.angle(toSlendermanVect) / (2 * Math.PI) * 360;
+
+		World world = player.getWorld();
+		boolean nothingBetween = isSomethingBetween(
+				toSlendermanVect.toLocation(world), (int) toSlendermanDist);
+
+		// TODO: Configurable vision angle.
+		if (toSlendermanDist <= viewDist && nothingBetween && angle > 105) {
+			return true;
+		}
+		return false;
+	}
+
+	private boolean isSomethingBetween(Location start, int maxDist) {
+		// BlockIterator blockIt = new BlockIterator(start, maxDist);
+		// while (blockIt.hasNext()) {
+		// Block block = blockIt.next();
+		// info("blockType=" + block.getType());
+		// }
+		return true;
+	}
+
+	public void checkDamages() {
+		Player slendermanPlayer = slenderman.getPlayer();
+		for (Player player : server.getOnlinePlayers()) {
+			double dist = getDist(player.getLocation(),
+					slendermanPlayer.getLocation());
+
+			int id = -1;
+			Integer o = damageShedulers.get(player);
+			if (o != null) {
+				id = o;
+			}
+			// TODO: Configurable player maxHealth.
+			int maxHealth = 100;
+			// TODO: Configurable min damage dist.
+			int minDamageDist = 30;
+			// TODO: Configurable maxDamage (%).
+			int maxDamagePercent = 30;
+
+			double damagePercent = (minDamageDist - dist) * 100 / minDamageDist;
+			double realDamagePercent = damagePercent * maxDamagePercent / 100;
+			Integer damage = new Integer(
+					(int) (realDamagePercent * maxHealth / 100));
+
+			if (slenderman.isSlenderman(player)) {
+				damage = new Integer(-1);
+			}
+			damageMap.put(player, damage);
+			if (dist < minDamageDist) {
+				if (id == -1) {
+					id = server.getScheduler().scheduleSyncRepeatingTask(this,
+							new Dammager(player, maxHealth), 20, 20);
+
+					damageShedulers.put(player, new Integer(id));
+				}
+			}
+		}
+	}
+
+	public class Dammager implements Runnable {
+		private Player player;
+		private int maxHealth;
+
+		public Dammager(Player player, int maxHealth) {
+			this.player = player;
+			this.maxHealth = maxHealth;
+		}
+
+		public void run() {
+			if (player.getMaxHealth() != maxHealth) {
+				player.setMaxHealth(maxHealth);
+			}
+			if (player.isDead()) {
+				damageMap.put(player, -1);
+			}
+			int amount = damageMap.get(player);
+			if (getSlenderman().isVisible() && amount > 0) {
+				double playerMaxHealth = player.getMaxHealth();
+				double damage = amount * playerMaxHealth / maxHealth;
+				if (player.getHealth() <= damage) {
+					addDeadPlayer(player);
+				}
+				player.damage(damage);
+			}
+		}
+
+	}
+
+	public void addPage(PlayerInteractEvent event) throws Exception {
+		if (!addPage) {
+			return;
+		}
+		addPage = false;
+
+		Block block = event.getClickedBlock();
+
+		if (block == null) {
+			return;
+		}
+
+		BlockFace face = event.getBlockFace();
+		Integer[] coord = placeFrame(block, face, false);
+		if (coord == null) {
+			throw new Exception("Error while placing frame: coord are null");
+		}
+
+		pagesLocation.add(coord);
+		getConfig().set(PAGE_LOCATION_PATH, pagesLocation);
+		saveConfig();
+	}
+
+	private void addDeadPlayer(Player player) {
+		damageMap.put(player, -1);
+		deadPlayers.add(player);
+
+		World world = player.getWorld();
+		List<Player> players = world.getPlayers();
+
+		setPlayerVisibility(player, false);
+
+		for (Player p : players) {
+			if (deadPlayers.contains(p)) {
+				p.showPlayer(player);
+			}
+		}
+	}
+
+	private Integer[] placeFrame(Block block, BlockFace face, boolean withPaper) {
+		if (face.equals(BlockFace.DOWN) || face.equals(BlockFace.UP)) {
+			return null;
+		}
+
+		Integer[] coord = new Integer[4];
+
+		coord[0] = block.getX();
+		coord[1] = block.getY();
+		coord[2] = block.getZ();
+		coord[3] = 0;
+		World world = block.getWorld();
+
+		Location l1 = new Location(world, coord[0], coord[1], coord[2]);
+		Location l2 = new Location(world, coord[0], coord[1], coord[2]);
+		Location l3 = new Location(world, coord[0], coord[1], coord[2]);
+
+		if (face.equals(BlockFace.NORTH)) {
+			l1.setX(coord[0] + 1);
+			l2.setX(coord[0] - 1);
+			l3.setZ(coord[2] + 1);
+			coord[3] = 0;
+			coord[2]--;
+		} else if (face.equals(BlockFace.SOUTH)) {
+			l1.setX(coord[0] + 1);
+			l2.setX(coord[0] - 1);
+			l3.setZ(coord[2] - 1);
+			coord[3] = 2;
+			coord[2]++;
+		} else if (face.equals(BlockFace.EAST)) {
+			l1.setX(coord[0] - 1);
+			l2.setZ(coord[2] - 1);
+			l3.setZ(coord[2] + 1);
+			coord[3] = 1;
+			coord[0]++;
+		} else if (face.equals(BlockFace.WEST)) {
+			l1.setX(coord[0] + 1);
+			l2.setZ(coord[2] - 1);
+			l3.setZ(coord[2] + 1);
+			coord[3] = 3;
+			coord[0]--;
+		}
+
+		Block b1 = world.getBlockAt(l1);
+		Block b2 = world.getBlockAt(l2);
+		Block b3 = world.getBlockAt(l3);
+
+		int t1 = b1.getTypeId();
+		int t2 = b2.getTypeId();
+		int t3 = b3.getTypeId();
+
+		b1.setTypeId(2);
+		b2.setTypeId(2);
+		b3.setTypeId(2);
+
+		ItemFrame i = block.getWorld().spawn(block.getLocation(),
+				ItemFrame.class);
+
+		b1.setTypeId(t1);
+		b2.setTypeId(t2);
+		b3.setTypeId(t3);
+
+		if (withPaper) {
+			i.setItem(new ItemStack(339));
+		}
+
+		return coord;
+	}
+
+	public void addMessage(String msg) {
+		messages.add(msg);
+		getConfig().set(PAGE_MESSAGES_PATH, messages);
+		saveConfig();
+	}
+
+	public void setPlayerVisibility(Player player, Boolean isVisible) {
+		World world = player.getWorld();
+
+		for (Player p : world.getPlayers()) {
+			if (isVisible) {
+				p.showPlayer(player);
+			} else {
+				p.hidePlayer(player);
+			}
+		}
+	}
+
+	public void setPlayerName(Player player, String name) {
+		player.setDisplayName(name);
+		// EntityPlayer ep = ((CraftPlayer) player).getHandle();
+		// String originalName = ep.getName();
+		// ep.name = name;
+		//
+		// for (Player p : server.getOnlinePlayers()) {
+		// EntityPlayer op = ((CraftPlayer) p).getHandle();
+		// if (op.equals(ep)) {
+		// continue;
+		// }
+		// op.playerConnection.sendPacket(new Packet20NamedEntitySpawn(ep));
+		// }
+		// ep.name = originalName;
+	}
+
+	public void checkDead() {
+		List<Player> players = slenderman.getPlayer().getWorld().getPlayers();
+		if (deadPlayers.size() == players.size() - 1) {
+			server.getScheduler().runTaskLater(this, new Runnable() {
+				public void run() {
+					endGame(true);
+				}
+			}, 20);
+		}
+	}
+}
