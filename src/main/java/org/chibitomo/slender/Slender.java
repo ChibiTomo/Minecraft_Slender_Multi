@@ -148,17 +148,17 @@ public class Slender extends Plugin {
 		return slenderman;
 	}
 
-	public void takePage(Player player, Entity entity) {
+	public void takePage(Player player, ItemFrame frame) {
 		try {
-			ItemStack item = ((ItemFrame) entity).getItem();
+			ItemStack item = frame.getItem();
 			if (item.getTypeId() != 339) {
 				return;
 			}
-			Location location = entity.getLocation();
+			Location location = frame.getLocation();
 			for (Page page : pages) {
 				if (page.isLocatedAt(location) && !page.isTaken()) {
 					page.setToken(true);
-					entity.remove();
+					frame.remove();
 					player.sendMessage(page.getMessage());
 					takenPages++;
 
@@ -318,6 +318,18 @@ public class Slender extends Plugin {
 			result = BlockFace.SOUTH;
 		} else if (i == 3) {
 			result = BlockFace.WEST;
+		}
+		return result;
+	}
+
+	private int blockFace2int(BlockFace face) {
+		int result = 0;
+		if (face == BlockFace.EAST) {
+			result = 1;
+		} else if (face == BlockFace.SOUTH) {
+			result = 2;
+		} else if (face == BlockFace.WEST) {
+			result = 3;
 		}
 		return result;
 	}
@@ -678,5 +690,40 @@ public class Slender extends Plugin {
 				}
 			}, 20);
 		}
+	}
+
+	public void removePage(ItemFrame frame) {
+		frames.remove(frame);
+		frame.remove();
+		Integer[] coord = loc2Coord(frame.getLocation(), frame.getFacing());
+		info("coord: x=" + coord[0] + " y=" + coord[1] + " z=" + coord[2]
+				+ " face=" + coord[3]);
+		for (Integer i : pagesLocations.keySet()) {
+			Integer[] c = pagesLocations.get(i);
+			info("id=" + i + "c: x=" + c[0] + " y=" + c[1] + " z=" + c[2]
+					+ " face=" + c[3]);
+			if ((c[0].compareTo(coord[0]) == 0)
+					&& (c[1].compareTo(coord[1]) == 0)
+					&& (c[2].compareTo(coord[2]) == 0)
+					&& (c[3].compareTo(coord[3]) == 0)) {
+				pagesLocations.remove(i);
+
+				break;
+			}
+		}
+
+		HashMap<Integer, Integer[]> newLocations = new HashMap<Integer, Integer[]>();
+		for (Integer[] a : pagesLocations.values()) {
+			newLocations.put(newLocations.size(), a);
+		}
+		pagesLocations = newLocations;
+		getConfig().set(PAGE_LOCATION_PATH, pagesLocations);
+		saveConfig();
+	}
+
+	private Integer[] loc2Coord(Location loc, BlockFace face) {
+		Integer[] coord = { loc.getBlockX(), loc.getBlockY(), loc.getBlockZ(),
+				blockFace2int(face) };
+		return coord;
 	}
 }

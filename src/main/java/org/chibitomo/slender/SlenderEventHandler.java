@@ -26,6 +26,7 @@ public class SlenderEventHandler extends EventHandler {
 		super(plugin, priority);
 	}
 
+	@Override
 	public void setManagedEvent() {
 		addEvent(BlockBreakEvent.class);
 		addEvent(PlayerInteractEvent.class);
@@ -87,33 +88,47 @@ public class SlenderEventHandler extends EventHandler {
 	}
 
 	public void onHangingBreakByEntityEvent(Event givenEvent) {
-		if (!((Slender) plugin).gameisStarted()) {
-			return;
-		}
 		HangingBreakByEntityEvent event = (HangingBreakByEntityEvent) givenEvent;
-		event.setCancelled(true);
 		Entity entity = event.getEntity();
-		Entity remover = event.getRemover();
-		Player player = null;
-		if (!(remover instanceof Player)) {
-			return;
-		}
 
 		if (!canHangingBreakByEntityEvent) {
 			return;
 		}
 		canHangingBreakByEntityEvent = false;
-		player = (Player) remover;
 
 		plugin.getServer().getScheduler()
 				.runTaskLater((Plugin) plugin, new Runnable() {
+					@Override
 					public void run() {
 						canHangingBreakByEntityEvent = true;
 					}
 				}, 20);
 
-		if (entity instanceof ItemFrame) {
-			((Slender) plugin).takePage(player, entity);
+		boolean isFrame = entity instanceof ItemFrame;
+
+		if (!((Slender) plugin).gameisStarted()) {
+			if (isFrame) {
+				// TODO: Remove page
+				((Slender) plugin).removePage((ItemFrame) entity);
+			}
+			return;
+		}
+
+		event.setCancelled(true);
+
+		Entity remover = event.getRemover();
+
+		if (!(remover instanceof Player)) {
+			return;
+		}
+
+		Player player = (Player) remover;
+		if (((Slender) plugin).getSlenderman().isSlenderman(player)) {
+			return;
+		}
+
+		if (isFrame) {
+			((Slender) plugin).takePage(player, (ItemFrame) entity);
 		}
 	}
 
@@ -141,7 +156,7 @@ public class SlenderEventHandler extends EventHandler {
 		Entity entity = event.getRightClicked();
 
 		if (entity instanceof ItemFrame) {
-			((Slender) plugin).takePage(player, entity);
+			((Slender) plugin).takePage(player, (ItemFrame) entity);
 		}
 	}
 
