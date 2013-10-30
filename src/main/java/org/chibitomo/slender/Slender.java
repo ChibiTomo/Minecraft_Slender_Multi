@@ -15,7 +15,6 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -33,9 +32,10 @@ public class Slender extends Plugin {
 	private static final String PAGE_QUANTITY_PATH = "page_qty";
 	private static final String MAX_TP_DIST_PATH = "max_tp_distance";
 	private static final String VIEW_DIST_PATH = "view_dist";
+	private static final String WORLD_NAME_PATH = "world";
 
 	private Slenderman slenderman;
-	private Map<Integer, Integer[]> pagesLocation;
+	private Map<Integer, Integer[]> pagesLocations;
 	private List<String> messages;
 	private List<Page> pages;
 
@@ -44,15 +44,19 @@ public class Slender extends Plugin {
 	private boolean gameIsStarted;
 	private int etenal_night_runnable_id;
 	private int viewDist;
+
 	private Map<Player, Integer> damageShedulers;
-	
 	public Map<Player, Integer> damageMap;
+
 	public Team slenderTeam;
 	public Team childrenTeam;
 	public Team deadsTeam;
 
 	public boolean addPage = false;
 	private Scoreboard scoreboard;
+	private List<Entity> frames;
+	private World world;
+	private boolean isClosing = false;
 
 	@Override
 	protected void init() {
@@ -65,36 +69,69 @@ public class Slender extends Plugin {
 		damageShedulers = new HashMap<Player, Integer>();
 		damageMap = new HashMap<Player, Integer>();
 		messages = new ArrayList<String>();
-		pagesLocation = new HashMap<Integer, Integer[]>();
-		
+		pagesLocations = new HashMap<Integer, Integer[]>();
+		frames = new ArrayList<Entity>();
+
+		String worldName = getConfig().getString(WORLD_NAME_PATH);
+		if (worldName != null) {
+			world = server.getWorld(worldName);
+		} else {
+			world = server.getWorlds().get(0);
+		}
+
+		loadPageLocations();
+		placePageDummies();
+
 		ScoreboardManager manager = Bukkit.getScoreboardManager();
 		scoreboard = manager.getNewScoreboard();
-		
+
 		slenderTeam = scoreboard.registerNewTeam("Slenderman");
 		slenderTeam.setDisplayName(ChatColor.RED + "Slenderman");
 		slenderTeam.setPrefix(ChatColor.RED + "");
 		slenderTeam.setSuffix(" Slenderman" + ChatColor.RESET);
-		
+
 		childrenTeam = scoreboard.registerNewTeam("Children");
 		childrenTeam.setDisplayName(ChatColor.GREEN + "Children");
 		childrenTeam.setAllowFriendlyFire(false);
 		childrenTeam.setPrefix(ChatColor.GREEN + "");
 		childrenTeam.setSuffix(" Children" + ChatColor.RESET);
-		
+
 		deadsTeam = scoreboard.registerNewTeam("Deads");
 		deadsTeam.setDisplayName(ChatColor.AQUA + "Deads");
 		deadsTeam.setCanSeeFriendlyInvisibles(true);
 		deadsTeam.setPrefix(ChatColor.AQUA + "");
 		deadsTeam.setSuffix(" Dead" + ChatColor.RESET);
-				
+
 		slenderman = new Slenderman(this);
+	}
+
+	private void placePageDummies() {
+		server.getScheduler().runTaskLater(this, new Runnable() {
+			@Override
+			public void run() {
+				Location loc = null;
+
+				for (Integer[] coord : pagesLocations.values()) {
+					loc = new Location(world, coord[0], coord[1], coord[2]);
+					if (getEntityAt(loc) == null) {
+						BlockFace face = int2BlockFace(coord[3]);
+						Location blockLoc = fLoc2BLoc(loc, face);
+
+						placeFrame(world.getBlockAt(blockLoc), face, false);
+					}
+				}
+			}
+		}, 10);
 	}
 
 	@Override
 	protected void close() {
+		isClosing = true;
 		if (gameIsStarted) {
 			gameStop();
 		}
+
+		removeFrames();
 	}
 
 	@Override
@@ -154,6 +191,7 @@ public class Slender extends Plugin {
 	}
 
 	public void gameStart(Player player) {
+		removeFrames();
 		pages = new ArrayList<Page>();
 		List<Player> players = player.getWorld().getPlayers();
 		int playerId = (int) (Math.random() * players.size());
@@ -165,70 +203,94 @@ public class Slender extends Plugin {
 		viewDist = config.getInt(VIEW_DIST_PATH);
 
 		messages = config.getStringList(PAGE_MESSAGES_PATH);
-		
-		int i = 0;
-		List<Integer> loc = config.getIntegerList(PAGE_LOCATION_PATH + "." + i );
-		while (!loc.isEmpty()) {
-			Integer[] array = new Integer[4];
-			loc.toArray(array);
-			pagesLocation.put(i, array);
-			i++;
-			loc = config.getIntegerList(PAGE_LOCATION_PATH + "." + i );
-		}
-		
-		
+
+		loadPageLocations();
+
 		damageShedulers = new HashMap<Player, Integer>();
 
-		totalPages = Math.min(totalPages, pagesLocation.size());
-		freePageLocations();
-		placePages();
-		this.gameIsStarted = true;
+		totalPages = Math.min(totalPages, pagesLocations.size());
+
+		gameIsStarted = true;
 		eternal_night_on();
-		
+
 		for (Player p : server.getOnlinePlayers()) {
 			if (!slenderman.isSlenderman(p)) {
 				childrenTeam.addPlayer(p);
 			}
 			p.setScoreboard(scoreboard);
 		}
-		
+
 		server.broadcastMessage("Start a new game.");
+
+		server.getScheduler().runTaskLater(this, new Runnable() {
+			@Override
+			public void run() {
+				placePages();
+			}
+		}, 10);
 	}
 
-	private void freePageLocations() {
-		for (Integer[] coord : pagesLocation.values()) {
-			Location loc = new Location(slenderman.getPlayer().getWorld(), coord[0], coord[1], coord[2]);
-			removeEntityAt(loc);
+	private void loadPageLocations() {
+		FileConfiguration config = getConfig();
+
+		int i = 0;
+		List<Integer> loc = config.getIntegerList(PAGE_LOCATION_PATH + "." + i);
+
+		while (!loc.isEmpty()) {
+			Integer[] array = new Integer[4];
+			loc.toArray(array);
+			pagesLocations.put(i, array);
+			i++;
+			loc = config.getIntegerList(PAGE_LOCATION_PATH + "." + i);
 		}
+	}
+
+	private void removeFrames() {
+		for (Entity e : frames) {
+			e.remove();
+		}
+		frames = new ArrayList<Entity>();
 	}
 
 	private void placePages() {
 		World world = slenderman.getPlayer().getWorld();
+
 		for (int i = 0; i < totalPages; i++) {
 			int nbMessage = messages.size();
 			String message = "";
+
 			if (nbMessage > 0) {
 				message = messages.get(i % nbMessage);
 			}
-			
-			
+
 			Location loc = null;
-			
+
 			Integer[] array = new Integer[4];
+
 			while (loc == null) {
-				int pageId = (int) (Math.random() * pagesLocation.size());
-				array = pagesLocation.get(pageId);
+				int pageId = (int) (Math.random() * pagesLocations.size());
+				array = pagesLocations.get(pageId);
 				loc = new Location(world, array[0], array[1], array[2]);
 				for (Page p : pages) {
 					if (p.getLoc().equals(loc)) {
 						loc = null;
 					}
 				}
+				// info("no page placed here!");
+				if ((loc != null) && (getEntityAt(loc) != null)) {
+					// info("there is an entity here...");
+					loc = null;
+					totalPages--;
+					continue;
+				}
 			}
+
 			BlockFace face = int2BlockFace(array[3]);
 			Location frameLoc = fLoc2BLoc(loc, face);
+
 			Page page = new Page(i, loc, message);
 			pages.add(page);
+
 			placeFrame(world.getBlockAt(frameLoc), face, true);
 		}
 	}
@@ -261,8 +323,9 @@ public class Slender extends Plugin {
 	}
 
 	public void gameStop() {
+		removeFrames();
 		slenderman.setSlenderman(null);
-		this.gameIsStarted = false;
+		gameIsStarted = false;
 		totalPages = 0;
 		takenPages = 0;
 		eternal_night_off();
@@ -275,8 +338,12 @@ public class Slender extends Plugin {
 
 			p.setScoreboard(server.getScoreboardManager().getNewScoreboard());
 		}
-		
+
 		server.broadcastMessage("Stop current game.");
+
+		if (!isClosing) {
+			placePageDummies();
+		}
 	}
 
 	private void eternal_night_on() {
@@ -286,6 +353,7 @@ public class Slender extends Plugin {
 		final World world = slenderman.getPlayer().getWorld();
 		etenal_night_runnable_id = server.getScheduler()
 				.scheduleSyncRepeatingTask(this, new Runnable() {
+					@Override
 					public void run() {
 						world.setTime(15000);
 					}
@@ -318,7 +386,7 @@ public class Slender extends Plugin {
 		List<Player> result = new ArrayList<Player>();
 		for (Player p : server.getOnlinePlayers()) {
 			double playerDist = getDist(player.getLocation(), p.getLocation());
-			if (!player.equals(p) && playerDist <= dist) {
+			if (!player.equals(p) && (playerDist <= dist)) {
 				result.add(p);
 			}
 		}
@@ -341,14 +409,14 @@ public class Slender extends Plugin {
 		Vector toSlendermanVect = new Vector(x, y, z);
 
 		Vector eyeDir = eyeLoc.getDirection();
-		double angle = eyeDir.angle(toSlendermanVect) / (2 * Math.PI) * 360;
+		double angle = (eyeDir.angle(toSlendermanVect) / (2 * Math.PI)) * 360;
 
 		World world = player.getWorld();
 		boolean nothingBetween = isSomethingBetween(
 				toSlendermanVect.toLocation(world), (int) toSlendermanDist);
 
 		// TODO: Configurable vision angle.
-		if (toSlendermanDist <= viewDist && nothingBetween && angle > 105) {
+		if ((toSlendermanDist <= viewDist) && nothingBetween && (angle > 105)) {
 			return true;
 		}
 		return false;
@@ -381,10 +449,11 @@ public class Slender extends Plugin {
 			// TODO: Configurable maxDamage (%).
 			int maxDamagePercent = 30;
 
-			double damagePercent = (minDamageDist - dist) * 100 / minDamageDist;
-			double realDamagePercent = damagePercent * maxDamagePercent / 100;
+			double damagePercent = ((minDamageDist - dist) * 100)
+					/ minDamageDist;
+			double realDamagePercent = (damagePercent * maxDamagePercent) / 100;
 			Integer damage = new Integer(
-					(int) (realDamagePercent * maxHealth / 100));
+					(int) ((realDamagePercent * maxHealth) / 100));
 
 			if (slenderman.isSlenderman(player)) {
 				damage = new Integer(-1);
@@ -410,6 +479,7 @@ public class Slender extends Plugin {
 			this.maxHealth = maxHealth;
 		}
 
+		@Override
 		public void run() {
 			if (player.getMaxHealth() != maxHealth) {
 				player.setMaxHealth(maxHealth);
@@ -418,9 +488,9 @@ public class Slender extends Plugin {
 				damageMap.put(player, -1);
 			}
 			int amount = damageMap.get(player);
-			if (getSlenderman().isVisible() && amount > 0) {
+			if (getSlenderman().isVisible() && (amount > 0)) {
 				double playerMaxHealth = player.getMaxHealth();
-				double damage = amount * playerMaxHealth / maxHealth;
+				double damage = (amount * playerMaxHealth) / maxHealth;
 				if (player.getHealth() <= damage) {
 					addDeadPlayer(player);
 				}
@@ -448,8 +518,8 @@ public class Slender extends Plugin {
 			throw new Exception("Error while placing frame: coord are null");
 		}
 
-		pagesLocation.put(pagesLocation.size(), coord);
-		getConfig().set(PAGE_LOCATION_PATH, pagesLocation);
+		pagesLocations.put(pagesLocations.size(), coord);
+		getConfig().set(PAGE_LOCATION_PATH, pagesLocations);
 		saveConfig();
 	}
 
@@ -465,9 +535,9 @@ public class Slender extends Plugin {
 
 	private void addDeadPlayer(Player player) {
 		deadsTeam.addPlayer(player);
-		
+
 		setPlayerVisibility(player, false);
-		
+
 		Set<OfflinePlayer> players = deadsTeam.getPlayers();
 		for (OfflinePlayer p1 : players) {
 			if (!p1.isOnline()) {
@@ -482,9 +552,9 @@ public class Slender extends Plugin {
 				if (!player2.equals(player1)) {
 					player1.showPlayer(player2);
 				}
-			}			
+			}
 		}
-		
+
 		damageMap.put(player, -1);
 	}
 
@@ -542,9 +612,11 @@ public class Slender extends Plugin {
 		b1.setTypeId(2);
 		b2.setTypeId(2);
 		b3.setTypeId(2);
-		
+
 		Location loc = new Location(world, coord[0], coord[1], coord[2]);
-		removeEntityAt(loc);
+		if (getEntityAt(loc) != null) {
+			return null;
+		}
 
 		ItemFrame i = block.getWorld().spawn(block.getLocation(),
 				ItemFrame.class);
@@ -557,21 +629,9 @@ public class Slender extends Plugin {
 			i.setItem(new ItemStack(339));
 		}
 
-		return coord;
-	}
+		frames.add(i);
 
-	private void removeEntityAt(Location loc) {
-		World world = loc.getWorld();
-		Entity e = getEntityAt(loc);
-		info("entity: " + e);
-//		while (e != null) {
-//			e.teleport(new Location(world, 0, -10, 0));
-//			e.remove();
-//			loc.getChunk().unload(true);
-//			loc.getChunk().load();
-//			e = getEntityAt(loc);
-//			info("entity: " + e);
-//		}
+		return coord;
 	}
 
 	private Entity getEntityAt(Location loc) {
@@ -581,9 +641,9 @@ public class Slender extends Plugin {
 				continue;
 			}
 			Location eLoc = e.getLocation();
-			if (loc.getBlockX() == eLoc.getBlockX() 
-					&& loc.getBlockY() == eLoc.getBlockY()
-					&& loc.getBlockZ() == eLoc.getBlockZ()) {
+			if ((loc.getBlockX() == eLoc.getBlockX())
+					&& (loc.getBlockY() == eLoc.getBlockY())
+					&& (loc.getBlockZ() == eLoc.getBlockZ())) {
 				return e;
 			}
 		}
@@ -610,8 +670,9 @@ public class Slender extends Plugin {
 
 	public void checkDead() {
 		Player[] players = server.getOnlinePlayers();
-		if (deadsTeam.getPlayers().size() == players.length - 1) {
+		if (deadsTeam.getPlayers().size() == (players.length - 1)) {
 			server.getScheduler().runTaskLater(this, new Runnable() {
+				@Override
 				public void run() {
 					endGame(true);
 				}
