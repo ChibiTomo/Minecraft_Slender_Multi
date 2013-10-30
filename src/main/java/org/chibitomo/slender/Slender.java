@@ -255,7 +255,13 @@ public class Slender extends Plugin {
 	private void placePages() {
 		World world = slenderman.getPlayer().getWorld();
 
-		for (int i = 0; i < totalPages; i++) {
+		List<Location> success = new ArrayList<Location>();
+		List<Location> fail = new ArrayList<Location>();
+		int i = 0;
+		while (i < totalPages) {
+			if ((fail.size() + success.size()) >= pagesLocations.size()) {
+				totalPages = i;
+			}
 			int nbMessage = messages.size();
 			String message = "";
 
@@ -276,23 +282,31 @@ public class Slender extends Plugin {
 						loc = null;
 					}
 				}
-				// info("no page placed here!");
+
 				if ((loc != null) && (getEntityAt(loc) != null)) {
-					// info("there is an entity here...");
 					loc = null;
-					totalPages--;
-					continue;
+					if (!fail.contains(loc)) {
+						fail.add(loc);
+					}
 				}
 			}
 
 			BlockFace face = int2BlockFace(array[3]);
 			Location frameLoc = fLoc2BLoc(loc, face);
 
+			if (placeFrame(world.getBlockAt(frameLoc), face, true) == null) {
+				if (!fail.contains(loc)) {
+					fail.add(loc);
+				}
+				continue;
+			}
+
 			Page page = new Page(i, loc, message);
 			pages.add(page);
-
-			placeFrame(world.getBlockAt(frameLoc), face, true);
+			success.add(loc);
+			i++;
 		}
+		info("totalPages=" + totalPages);
 	}
 
 	private Location fLoc2BLoc(Location loc, BlockFace face) {
@@ -527,8 +541,12 @@ public class Slender extends Plugin {
 		BlockFace face = event.getBlockFace();
 		Integer[] coord = placeFrame(block, face, false);
 		if (coord == null) {
-			throw new Exception("Error while placing frame: coord are null");
+			return;
 		}
+
+		event.getPlayer().sendMessage(
+				"New page placed at: x=" + coord[0] + " y=" + coord[1] + " z="
+						+ coord[2]);
 
 		pagesLocations.put(pagesLocations.size(), coord);
 		getConfig().set(PAGE_LOCATION_PATH, pagesLocations);
@@ -630,18 +648,22 @@ public class Slender extends Plugin {
 			return null;
 		}
 
-		ItemFrame i = block.getWorld().spawn(block.getLocation(),
-				ItemFrame.class);
+		ItemFrame i = null;
+		try {
+			i = block.getWorld().spawn(block.getLocation(), ItemFrame.class);
+			if (withPaper) {
+				i.setItem(new ItemStack(339));
+			}
 
-		b1.setTypeId(t1);
-		b2.setTypeId(t2);
-		b3.setTypeId(t3);
+			frames.add(i);
+		} catch (IllegalArgumentException e) {
+			coord = null;
+		} finally {
+			b1.setTypeId(t1);
+			b2.setTypeId(t2);
+			b3.setTypeId(t3);
 
-		if (withPaper) {
-			i.setItem(new ItemStack(339));
 		}
-
-		frames.add(i);
 
 		return coord;
 	}
