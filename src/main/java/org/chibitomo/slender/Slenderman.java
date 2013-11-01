@@ -13,15 +13,17 @@ public class Slenderman {
 	private Boolean isVisible = true;
 	private Slender plugin;
 	private boolean isAlreadySeen = false;
-	private Team team;
+	private Team slenderTeam;
+	private Team childrenTeam;
 
 	public Slenderman(Slender plugin) {
 		this.plugin = plugin;
-		team = plugin.slenderTeam;
+		slenderTeam = plugin.slenderTeam;
+		childrenTeam = plugin.childrenTeam;
 	}
 
 	public boolean isSlenderman(Player player) {
-		return player != null && player.equals(slenderman);
+		return (player != null) && player.equals(slenderman);
 	}
 
 	public void setMaxTpDistance(int n) {
@@ -35,12 +37,13 @@ public class Slenderman {
 	public void setSlenderman(Player player) {
 		if (slenderman != null) {
 			setVisibility(true);
-			team.removePlayer(slenderman);
+			slenderTeam.removePlayer(slenderman);
+			childrenTeam.addPlayer(slenderman);
 		}
 		if (!isSlenderman(player)) {
 			slenderman = player;
 			if (slenderman != null) {
-				team.addPlayer(slenderman);
+				slenderTeam.addPlayer(slenderman);
 				// TODO: Give object in hand.
 				slenderman.sendMessage("You are the Slenderman");
 			}
