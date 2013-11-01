@@ -1,5 +1,6 @@
 package org.chibitomo.slender;
 
+import org.apache.commons.lang.StringUtils;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.chibitomo.plugin.CommandHandler;
@@ -44,16 +45,12 @@ public class SlenderCommandHandler extends CommandHandler {
 	}
 
 	public boolean add_message(CommandSender sender, String[] args) {
-		if (args.length > 1) {
-			sendError(sender, "To many arguments.");
-			return false;
-		}
 		if (args.length < 1) {
 			sendError(sender, "To few arguments.");
 			return false;
 		}
-		
-		((Slender) plugin).addMessage(args[0]);
+
+		((Slender) plugin).addMessage(StringUtils.join(args, " "));
 
 		sender.sendMessage("New message added: " + args[0]);
 		return true;

@@ -33,6 +33,9 @@ public class Slender extends Plugin {
 	private static final String MAX_TP_DIST_PATH = "max_tp_distance";
 	private static final String VIEW_DIST_PATH = "view_dist";
 	private static final String WORLD_NAME_PATH = "world";
+	private static final String MIN_DAMAGE_DIST = "min_damage_dist";
+	private static final String MAX_HEATH = "max_health";
+	private static final String MAX_DAMAGE_PERCENT = "max_damage_percent";
 
 	private Slenderman slenderman;
 	private Map<Integer, Integer[]> pagesLocations;
@@ -57,6 +60,9 @@ public class Slender extends Plugin {
 	private List<Entity> frames;
 	private World world;
 	private boolean isClosing = false;
+	private int minDamageDist;
+	private int maxHealth;
+	private int maxDamagePercent;
 
 	@Override
 	protected void init() {
@@ -201,6 +207,9 @@ public class Slender extends Plugin {
 		slenderman.setMaxTpDistance(config.getInt(MAX_TP_DIST_PATH));
 		totalPages = config.getInt(PAGE_QUANTITY_PATH);
 		viewDist = config.getInt(VIEW_DIST_PATH);
+		minDamageDist = config.getInt(MIN_DAMAGE_DIST);
+		maxHealth = config.getInt(MAX_HEATH);
+		maxDamagePercent = config.getInt(MAX_DAMAGE_PERCENT);
 
 		messages = config.getStringList(PAGE_MESSAGES_PATH);
 
@@ -218,6 +227,8 @@ public class Slender extends Plugin {
 				childrenTeam.addPlayer(p);
 			}
 			p.setScoreboard(scoreboard);
+			p.setMaxHealth(maxHealth);
+			p.setHealth(maxHealth);
 		}
 
 		server.broadcastMessage("Start a new game.");
@@ -383,7 +394,7 @@ public class Slender extends Plugin {
 					public void run() {
 						world.setTime(15000);
 					}
-				}, 0, 7000);
+				}, 0, 100);
 	}
 
 	private void eternal_night_off() {
@@ -468,12 +479,6 @@ public class Slender extends Plugin {
 			if (o != null) {
 				id = o;
 			}
-			// TODO: Configurable player maxHealth.
-			int maxHealth = 100;
-			// TODO: Configurable min damage dist.
-			int minDamageDist = 30;
-			// TODO: Configurable maxDamage (%).
-			int maxDamagePercent = 30;
 
 			double damagePercent = ((minDamageDist - dist) * 100)
 					/ minDamageDist;
@@ -488,7 +493,7 @@ public class Slender extends Plugin {
 			if (dist < minDamageDist) {
 				if (id == -1) {
 					id = server.getScheduler().scheduleSyncRepeatingTask(this,
-							new Dammager(player, maxHealth), 20, 20);
+							new Dammager(player, maxHealth), 2 * 20, 2 * 20);
 
 					damageShedulers.put(player, new Integer(id));
 				}

@@ -1,14 +1,13 @@
 package org.chibitomo.slender;
 
 import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.hanging.HangingBreakByEntityEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
@@ -34,6 +33,7 @@ public class SlenderEventHandler extends EventHandler {
 		addEvent(PlayerMoveEvent.class);
 		addEvent(HangingBreakByEntityEvent.class);
 		addEvent(PlayerDeathEvent.class);
+		addEvent(BlockPlaceEvent.class);
 	}
 
 	public void onPlayerInteractEvent(Event givenEvent) throws Exception {
@@ -45,12 +45,19 @@ public class SlenderEventHandler extends EventHandler {
 		Action action = event.getAction();
 
 		if (action.equals(Action.LEFT_CLICK_AIR)
-				|| action.equals(Action.LEFT_CLICK_BLOCK)) {
-			tp(event);
-		} else if (action.equals(Action.RIGHT_CLICK_AIR)
+				|| action.equals(Action.LEFT_CLICK_BLOCK)
+				|| action.equals(Action.RIGHT_CLICK_AIR)
 				|| action.equals(Action.RIGHT_CLICK_BLOCK)) {
 			vanish(event);
 		}
+	}
+
+	public void onBlockPlaceEvent(Event givenEvent) throws Exception {
+		BlockPlaceEvent event = (BlockPlaceEvent) givenEvent;
+		if (!((Slender) plugin).gameisStarted()) {
+			return;
+		}
+		event.setCancelled(true);
 	}
 
 	private void vanish(PlayerInteractEvent event) {
@@ -63,28 +70,6 @@ public class SlenderEventHandler extends EventHandler {
 			return;
 		}
 		slenderman.toogleVisibility();
-	}
-
-	private void tp(PlayerInteractEvent event) {
-		if (!((Slender) plugin).gameisStarted()) {
-			return;
-		}
-		Player player = event.getPlayer();
-		Slenderman slenderman = ((Slender) plugin).getSlenderman();
-		if (!slenderman.isSlenderman(player)) {
-			return;
-		}
-		Block block = player
-				.getTargetBlock(null, slenderman.getMaxTpDistance());
-
-		if (block.getType().equals(Material.AIR)) {
-			return;
-		}
-		event.setCancelled(true);
-
-		Location loc = block.getLocation();
-
-		slenderman.tp(loc);
 	}
 
 	public void onHangingBreakByEntityEvent(Event givenEvent) {
@@ -106,16 +91,6 @@ public class SlenderEventHandler extends EventHandler {
 
 		boolean isFrame = entity instanceof ItemFrame;
 
-		if (!((Slender) plugin).gameisStarted()) {
-			if (isFrame) {
-				// TODO: Remove page
-				((Slender) plugin).removePage((ItemFrame) entity);
-			}
-			return;
-		}
-
-		event.setCancelled(true);
-
 		Entity remover = event.getRemover();
 
 		if (!(remover instanceof Player)) {
@@ -123,6 +98,18 @@ public class SlenderEventHandler extends EventHandler {
 		}
 
 		Player player = (Player) remover;
+
+		if (!((Slender) plugin).gameisStarted()) {
+			if (isFrame) {
+				((Slender) plugin).removePage((ItemFrame) entity);
+				Location loc = entity.getLocation();
+				player.sendMessage("Page removed: x=" + loc.getBlockX() + " y="
+						+ loc.getBlockY() + " z=" + loc.getBlockZ());
+				return;
+			}
+		}
+
+		event.setCancelled(true);
 		if (((Slender) plugin).getSlenderman().isSlenderman(player)) {
 			return;
 		}
@@ -174,7 +161,10 @@ public class SlenderEventHandler extends EventHandler {
 			slendermanIsSeen |= ((Slender) plugin).canSeeSlenderman(player);
 		} else {
 			if (slenderman.isAlreadySeen()) {
-				event.setTo(event.getFrom());
+				Location newLoc = event.getFrom();
+				newLoc.setPitch(event.getTo().getPitch());
+				newLoc.setYaw(event.getTo().getYaw());
+				event.setTo(newLoc);
 			}
 			slendermanIsSeen |= slenderman.isSeen();
 		}
