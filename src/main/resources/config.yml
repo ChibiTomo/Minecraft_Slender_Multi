@@ -1,7 +1,8 @@
 page_qty: 8
 view_dist: 50
+view_angle: 105
 min_damage_dist: 15
 max_health: 100
 max_damage_percent: 30
-page_location: {}
-page_messages: {}
+page_locations: []
+page_messages: []

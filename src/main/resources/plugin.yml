@@ -1,10 +1,15 @@
-name: Slender Multi
+name: Slender Multi Alpha
 main: org.chibitomo.slender.Slender
-version: 0.0.1
+version: 0.0.2
 commands:
+    set_child:
+       aliases: []
+    set_dead:
+       aliases: []
+       
     set_slenderman:
        description: Set the new Slenderman.
-       usage: /set_slenderman [PLAYER_NAME]
+       usage: /set_slenderman <PLAYER_NAME>
        aliases: []
        
     start_slenderman:
