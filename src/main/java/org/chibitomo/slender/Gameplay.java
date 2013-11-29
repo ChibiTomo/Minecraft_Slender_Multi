@@ -41,6 +41,7 @@ public class Gameplay {
 	private int minDamageDist;
 	private int maxHealth;
 	private int maxDamagePercent;
+	private boolean slendermenHaveCompass;
 
 	private HashMap<String, BukkitTask> damageShedulers;
 	private HashMap<String, Integer> distanceMap;
@@ -143,6 +144,8 @@ public class Gameplay {
 		minDamageDist = config.getInt(Slender.MIN_DAMAGE_DIST);
 		maxHealth = config.getInt(Slender.MAX_HEATH);
 		maxDamagePercent = config.getInt(Slender.MAX_DAMAGE_PERCENT);
+		slendermenHaveCompass = config
+				.getBoolean(Slender.SLENDERMEN_HAVE_COMPASS);
 
 		slenderman = new Slenderman(getPlugin(), this);
 		addPagePlayerList = new ArrayList<String>();
@@ -325,6 +328,7 @@ public class Gameplay {
 				if (otherPlayer.equals(player)) {
 					continue;
 				}
+
 				// Check if otherPlayer is dead or spectator
 				if (teamManager.isInTeam(Gameplay.DEADS_TEAM, otherPlayer)) {
 					continue;
@@ -346,7 +350,10 @@ public class Gameplay {
 					int dist = (int) Utils.getDist(otherPlayer.getLocation(),
 							player.getLocation());
 					int oldDist = getDistance(player);
-					distanceMap.put(player.getName(), Math.min(oldDist, dist));
+					if (!Utils.isSomethingBeetween(player, otherPlayer)) {
+						distanceMap.put(player.getName(),
+								Math.min(oldDist, dist));
+					}
 				}
 
 				// Check if player can see otherPlayer
@@ -506,7 +513,7 @@ public class Gameplay {
 			teamManager.addPlayer(Gameplay.CHILDREN_TEAM, player);
 			plugin.setPlayerVisibility(player, true);
 			player.sendMessage(ChatColor.GREEN + "You are a Child");
-		} else {
+		} else if (slendermenHaveCompass) {
 			ItemStack compass = new ItemStack(Material.COMPASS);
 			player.setItemInHand(compass);
 		}

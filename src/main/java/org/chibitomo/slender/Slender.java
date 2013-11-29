@@ -18,6 +18,7 @@ public class Slender extends Plugin {
 	public static final String MAX_HEATH = "max_health";
 	public static final String MAX_DAMAGE_PERCENT = "max_damage_percent";
 	public static final String PAGE_LOCATION_PATH = "page_locations";
+	public static final String SLENDERMEN_HAVE_COMPASS = "slendermen_have_compass";
 
 	private boolean isClosing;
 	private boolean gameIsStarted;

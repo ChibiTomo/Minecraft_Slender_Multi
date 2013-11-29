@@ -1,5 +1,6 @@
 package org.chibitomo.slender;
 
+import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.ItemFrame;
@@ -191,8 +192,8 @@ public class GameplayEventHandler extends EventHandler {
 		Player player = event.getEntity();
 		slender.getGameplay().deleteDammager(player);
 		if (slender.getGameplay().isInTeam(Gameplay.DEADS_TEAM, player)) {
-			event.setDeathMessage("Slenderman cought " + player.getName()
-					+ "...");
+			event.setDeathMessage(ChatColor.RED + "Slenderman cought "
+					+ player.getName() + "...");
 		}
 		slender.getGameplay().checkDead();
 	}

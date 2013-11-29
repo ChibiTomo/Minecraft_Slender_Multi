@@ -101,19 +101,13 @@ public class SlenderCommandHandler extends CommandHandler {
 		return true;
 	}
 
-	public boolean set_child(CommandSender sender, String[] args) {
-		Gameplay gameplay = slender.getGameplay();
-		gameplay.removePlayer(Gameplay.DEADS_TEAM, (Player) sender);
-		gameplay.removePlayer(Gameplay.SLENDER_TEAM, (Player) sender);
-		gameplay.addPlayer(Gameplay.CHILDREN_TEAM, (Player) sender);
-		return true;
-	}
-
-	public boolean set_dead(CommandSender sender, String[] args) {
-		Gameplay gameplay = slender.getGameplay();
-		gameplay.removePlayer(Gameplay.CHILDREN_TEAM, (Player) sender);
-		gameplay.removePlayer(Gameplay.SLENDER_TEAM, (Player) sender);
-		gameplay.addPlayer(Gameplay.DEADS_TEAM, (Player) sender);
+	public boolean test(CommandSender sender, String[] args) {
+		if (!plugin.debigIsOn()) {
+			return true;
+		}
+		Player p1 = (Player) sender;
+		Player p2 = plugin.getServer().getPlayer("toto");
+		sender.sendMessage("Can see toto? " + Utils.canSee(p1, p2, 15, 100));
 		return true;
 	}
 }

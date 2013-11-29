@@ -2,6 +2,8 @@ package org.chibitomo.slender;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.commons.lang.ArrayUtils;
 import org.bukkit.Location;
@@ -12,6 +14,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.util.BlockIterator;
 import org.bukkit.util.Vector;
 
 class Utils {
@@ -212,10 +215,28 @@ class Utils {
 		return Math.sqrt(x + y + z);
 	}
 
-	public static boolean isSomethingBetween(Location location,
-			int toSlendermanDist) {
-		// TODO Auto-generated method stub
-		return false;
+	public static boolean isSomethingBeetween(LivingEntity entity,
+			LivingEntity otherEntity) {
+		Location loc = entity.getEyeLocation();
+		Location otherLoc = otherEntity.getEyeLocation();
+		Vector direction = getVector(loc, otherLoc);
+		double y = entity.getEyeHeight();
+		int toSlendermanDist = (int) getDist(loc, otherLoc);
+
+		BlockIterator bIt = new BlockIterator(entity.getWorld(), entity
+				.getLocation().toVector(), direction, y, toSlendermanDist);
+
+		// TODO: Configurable transparent blocks.
+		List<String> transpBlock = new ArrayList<String>();
+		transpBlock.add("AIR");
+
+		boolean somethingBetween = false;
+		while (!somethingBetween && bIt.hasNext()) {
+			Block block = bIt.next();
+			somethingBetween = !transpBlock
+					.contains(block.getType().toString());
+		}
+		return somethingBetween;
 	}
 
 	public static boolean canSee(Player p1, Player p2, double viewDist,
@@ -224,22 +245,24 @@ class Utils {
 		Location p2EyeLoc = p2.getEyeLocation();
 		double toSlendermanDist = Utils.getDist(p1EyeLoc, p2EyeLoc);
 
-		float x = (float) (p1EyeLoc.getX() - p2EyeLoc.getX());
-		float y = (float) (p1EyeLoc.getY() - p2EyeLoc.getY());
-		float z = (float) (p1EyeLoc.getZ() - p2EyeLoc.getZ());
-		Vector toSlendermanVect = new Vector(x, y, z);
+		Vector toSlendermanVect = getVector(p1EyeLoc, p2EyeLoc);
 
 		Vector eyeDir = p1EyeLoc.getDirection();
 		double angle = (eyeDir.angle(toSlendermanVect) / (2 * Math.PI)) * 360;
 
-		World world = p1.getWorld();
-		boolean nothingBetween = !isSomethingBetween(
-				toSlendermanVect.toLocation(world), (int) toSlendermanDist);
+		boolean nothingBetween = !isSomethingBeetween(p1, p2);
 
 		if ((toSlendermanDist <= viewDist) && nothingBetween
-				&& (angle > viewAngle)) {
+				&& (angle < viewAngle)) {
 			return true;
 		}
 		return false;
+	}
+
+	private static Vector getVector(Location from, Location to) {
+		float x = (float) (to.getX() - from.getX());
+		float y = (float) (to.getY() - from.getY());
+		float z = (float) (to.getZ() - from.getZ());
+		return new Vector(x, y, z);
 	}
 }
