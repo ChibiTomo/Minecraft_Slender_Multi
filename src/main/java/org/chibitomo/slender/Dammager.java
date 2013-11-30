@@ -21,8 +21,8 @@ public class Dammager {
 		int dist = gameplay.getDistance(player);
 
 		double damage = gameplay.calculDamage(dist);
-		gameplay.getPlugin().debug(
-				"Damaging " + player.getName() + ": " + damage);
+		// gameplay.getPlugin().debug(
+		// "Damaging " + player.getName() + ": " + damage);
 		if (damage < 1) {
 			return;
 		}

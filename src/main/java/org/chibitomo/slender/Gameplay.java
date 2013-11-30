@@ -388,6 +388,7 @@ public class Gameplay {
 			}
 
 			if (nearestPlayerLoc != null) {
+				slenderman.checkCanBeVisible(player, nearestPlayerDist);
 				player.setCompassTarget(nearestPlayerLoc);
 			}
 		}

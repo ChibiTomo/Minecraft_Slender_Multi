@@ -13,10 +13,14 @@ import org.bukkit.scheduler.BukkitTask;
 
 public class Slenderman {
 
+	private static final float SPEED_INVISIBLE = (float) 0.5;
+	private static final float SPEED_VISIBLE = (float) 0.1;
 	private Gameplay gameplay;
 	private Slender plugin;
 
 	private Map<String, Boolean> slendermansVisibility;
+	private Map<String, Boolean> canBecomeVisible;
+
 	private List<String> slendermenSeen;
 	private BukkitTask taskCoolDown;
 	private Map<String, Integer> coolDown;
@@ -27,6 +31,7 @@ public class Slenderman {
 		this.gameplay = gameplay;
 
 		slendermansVisibility = new HashMap<String, Boolean>();
+		canBecomeVisible = new HashMap<String, Boolean>();
 		slendermenSeen = new ArrayList<String>();
 		coolDown = new HashMap<String, Integer>();
 		oldWalkSpeed = new HashMap<String, Float>();
@@ -93,14 +98,25 @@ public class Slenderman {
 		}
 	}
 
-	private void setVisibility(Player player, boolean visible) {
-		slendermansVisibility.put(player.getName(), visible);
-		plugin.setPlayerVisibility(player, visible);
-		player.setWalkSpeed((float) 0.3);
-		if (!visible) {
-			player.setWalkSpeed((float) 0.5);
-			coolDown.put(player.getName(), 3);
+	private boolean setVisibility(Player player, boolean visible) {
+		String playerName = player.getName();
+		Boolean isVisible = slendermansVisibility.get(playerName);
+		if (isVisible == null) {
+			isVisible = true;
 		}
+		if (!isVisible && !canBecomeVisible.get(playerName)) {
+			player.sendMessage(ChatColor.RED
+					+ "Children are not far enought...");
+			return false;
+		}
+		slendermansVisibility.put(playerName, visible);
+		plugin.setPlayerVisibility(player, visible);
+		player.setWalkSpeed(SPEED_VISIBLE);
+		if (!visible) {
+			player.setWalkSpeed(SPEED_INVISIBLE);
+			coolDown.put(playerName, 5);
+		}
+		return true;
 	}
 
 	public void toogleVisibility(Player player) {
@@ -109,7 +125,11 @@ public class Slenderman {
 		}
 		boolean visibility = isVisible(player);
 
-		setVisibility(player, !visibility);
+		boolean visibilityChanged = setVisibility(player, !visibility);
+
+		if (!visibilityChanged) {
+			return;
+		}
 
 		String message = ChatColor.RED + "You are now visible";
 		if (!slendermansVisibility.get(player.getName())) {
@@ -204,4 +224,22 @@ public class Slenderman {
 		}
 	}
 
+	public void checkCanBeVisible(Player player, int nearestPlayerDist) {
+		PageManager pageManager = plugin.getPageManager();
+		int pageLeft = pageManager.getPageLeftAmount();
+		int pageTaken = pageManager.getPageTakenAmount();
+		int totalPage = pageTaken + pageLeft;
+
+		float percent = pageLeft * 100 / totalPage;
+		int dist = (int) Math.ceil(30 * percent / 100);
+		plugin.debug("percent=" + percent);
+		plugin.debug("dist=" + dist);
+
+		boolean canBecomeVisible = true;
+		if (dist > nearestPlayerDist) {
+			canBecomeVisible = false;
+		}
+
+		this.canBecomeVisible.put(player.getName(), canBecomeVisible);
+	}
 }

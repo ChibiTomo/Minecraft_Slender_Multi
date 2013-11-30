@@ -30,7 +30,7 @@ public class Slender extends Plugin {
 
 	@Override
 	protected void init() {
-		debugOn = false;
+		debugOn = true;
 
 		NAME = "Slender Multi";
 		EVENTPRIORITY = 1;
