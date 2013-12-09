@@ -105,8 +105,7 @@ public class Slenderman {
 			isVisible = true;
 		}
 		if (!isVisible && !canBecomeVisible.get(playerName)) {
-			player.sendMessage(ChatColor.RED
-					+ "Children are not far enought...");
+			player.sendMessage(ChatColor.RED + "Children are not far enough...");
 			return false;
 		}
 		slendermansVisibility.put(playerName, visible);
