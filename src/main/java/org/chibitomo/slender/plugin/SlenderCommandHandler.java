@@ -1,9 +1,10 @@
-package org.chibitomo.slender;
+package org.chibitomo.slender.plugin;
 
 import org.apache.commons.lang.StringUtils;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.chibitomo.misc.Utils;
 import org.chibitomo.plugin.CommandHandler;
 
 public class SlenderCommandHandler extends CommandHandler {

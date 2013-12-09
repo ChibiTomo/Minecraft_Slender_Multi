@@ -1,4 +1,4 @@
-package org.chibitomo.slender;
+package org.chibitomo.slender.page;
 
 import org.bukkit.Location;
 
