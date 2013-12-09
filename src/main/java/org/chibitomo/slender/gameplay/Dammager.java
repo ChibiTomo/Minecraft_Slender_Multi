@@ -3,17 +3,21 @@ package org.chibitomo.slender.gameplay;
 import org.bukkit.entity.Player;
 
 public class Dammager {
-	private Player player;
+	private String playerName;
 	private int maxHealth;
 	private Gameplay gameplay;
 
 	public Dammager(Gameplay gameplay, Player player, int maxHealth) {
 		this.gameplay = gameplay;
-		this.player = player;
+		playerName = player.getName();
 		this.maxHealth = maxHealth;
 	}
 
-	public void damage() {
+	private void damage() {
+		Player player = gameplay.getPlugin().getServer().getPlayer(playerName);
+		if (player == null) {
+			return;
+		}
 		if (player.getMaxHealth() != maxHealth) {
 			player.setMaxHealth(maxHealth);
 		}

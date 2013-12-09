@@ -1,9 +1,10 @@
 package org.chibitomo.slender.plugin;
 
 import org.bukkit.World;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.Player;
-import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.scheduler.BukkitTask;
 import org.chibitomo.misc.Utils;
 import org.chibitomo.plugin.Plugin;
@@ -11,6 +12,7 @@ import org.chibitomo.slender.event.CommandEventHandler;
 import org.chibitomo.slender.event.GameplayEventHandler;
 import org.chibitomo.slender.event.SlenderEventHandler;
 import org.chibitomo.slender.gameplay.Gameplay;
+import org.chibitomo.slender.gameplay.Slenderman;
 import org.chibitomo.slender.page.FrameManager;
 import org.chibitomo.slender.page.PageManager;
 
@@ -26,6 +28,8 @@ public class Slender extends Plugin {
 	public static final String MAX_DAMAGE_PERCENT = "max_damage_percent";
 	public static final String PAGE_LOCATION_PATH = "page_locations";
 	public static final String SLENDERMEN_HAVE_COMPASS = "slendermen_have_compass";
+	public static final String CAN_REGAIN_HEALTH = "can_regain_health";
+	public static final String MAX_REGAIN_HEALTH = "max_regain_health";
 
 	private boolean isClosing;
 	private boolean gameIsStarted;
@@ -33,6 +37,8 @@ public class Slender extends Plugin {
 	private Gameplay gameplay;
 	private PageManager pageManager;
 	private FrameManager frameManager;
+	private Misc misc;
+
 	private BukkitTask eternalNightTask = null;
 
 	@Override
@@ -47,6 +53,7 @@ public class Slender extends Plugin {
 		gameplay = new Gameplay(this);
 		pageManager = new PageManager(this);
 		frameManager = new FrameManager(this);
+		misc = new Misc(this);
 	}
 
 	@Override
@@ -114,16 +121,19 @@ public class Slender extends Plugin {
 	}
 
 	public void gameStart() {
+		debug("Start FrameManager");
 		frameManager.start();
 		Utils.delay(this, this, "starting");
 	}
 
 	public void starting() {
+		debug("Start PageManager");
 		pageManager.start();
 		Utils.delay(this, this, "startingGameplay");
 	}
 
 	public void startingGameplay() {
+		debug("Start Gameplay");
 		gameplay.start();
 
 		eternal_night_on();
@@ -145,16 +155,16 @@ public class Slender extends Plugin {
 		return pageManager.addMessage(msg);
 	}
 
-	public void addPage(PlayerInteractEvent event) {
-		gameplay.addPage(event);
+	public void addPage(Player player, Block block, BlockFace face) {
+		misc.addPage(player, block, face);
 	}
 
 	public void takePage(Player player, ItemFrame entity) {
 		gameplay.takePage(player, entity);
 	}
 
-	public void playerAddPage(Player player) {
-		gameplay.playerAddPage(player);
+	public void listenAddPage(Player player) {
+		misc.listenAddPage(player);
 	}
 
 	public FrameManager getFrameManager() {
@@ -171,5 +181,13 @@ public class Slender extends Plugin {
 
 	public boolean isClosing() {
 		return isClosing;
+	}
+
+	public boolean canRegainHealth() {
+		return gameplay.canRegainHealth();
+	}
+
+	public double getMaxRegainHealth() {
+		return gameplay.getMaxRegainHealth();
 	}
 }

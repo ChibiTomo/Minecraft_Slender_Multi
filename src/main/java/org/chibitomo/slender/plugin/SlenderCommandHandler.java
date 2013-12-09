@@ -62,7 +62,7 @@ public class SlenderCommandHandler extends CommandHandler {
 		Player player = (Player) sender;
 		player.sendMessage(ChatColor.YELLOW
 				+ "Click where you want to place a page.");
-		slender.playerAddPage(player);
+		slender.listenAddPage(player);
 		return true;
 	}
 

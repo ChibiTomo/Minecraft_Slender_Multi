@@ -1,5 +1,5 @@
 name: Slender Multi Alpha
-main: org.chibitomo.slender.Slender
+main: org.chibitomo.slender.plugin.Slender
 version: 0.0.4
 commands:
     set_slenderman:

@@ -12,29 +12,28 @@ import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.Server;
 import org.bukkit.World;
-import org.bukkit.block.Block;
-import org.bukkit.block.BlockFace;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.Player;
-import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.scoreboard.Team;
 import org.chibitomo.misc.Utils;
 import org.chibitomo.slender.page.PageManager;
 import org.chibitomo.slender.plugin.Slender;
-import org.chibitomo.slender.plugin.Slenderman;
 
 public class Gameplay {
 	public static final String SLENDER_TEAM = "Slenderman";
 	public static final String CHILDREN_TEAM = "Children";
 	public static final String DEADS_TEAM = "Deads";
+	public static final String PROXIES_TEAM = "Proxies"; // TODO: Proxy team.
 
 	private static final String PAGE_LEFT_SCORE = "page_left";
 	private static final String SOUL_CAPTURED_SCORE = "soul_captured";
 	private static final String PAGE_FOUND_SCORE = "page_found";
 	private static final String BUDIES_LEFT_SCORE = "budies_left";
+
+	private static final float SAFE_DIST_RATIO = (float) 0.8;
 
 	private Slender plugin;
 	private Slenderman slenderman;
@@ -44,19 +43,19 @@ public class Gameplay {
 	private int viewAngle;
 	private int minDamageDist;
 	private int maxHealth;
+	private int maxRegainHealth;
 	private int maxDamagePercent;
 	private boolean slendermenHaveCompass;
+	private boolean canRegainHealth;
 
 	private HashMap<String, BukkitTask> damageShedulers;
 	private HashMap<String, Integer> distanceMap;
-	private List<String> addPagePlayerList;
 	private TeamManager teamManager;
 
 	private List<String> childrenSeen;
 
 	public Gameplay(Slender plugin) {
 		this.plugin = plugin;
-
 		init();
 	}
 
@@ -68,8 +67,8 @@ public class Gameplay {
 		return world;
 	}
 
-	public boolean isInTeam(String teamNo, Player player) {
-		for (OfflinePlayer p : getTeam(teamNo).getPlayers()) {
+	public boolean isInTeam(String teamName, OfflinePlayer player) {
+		for (OfflinePlayer p : getPlayers(teamName)) {
 			if (p.getName().equals(player.getName())) {
 				return true;
 			}
@@ -77,8 +76,8 @@ public class Gameplay {
 		return false;
 	}
 
-	public Set<OfflinePlayer> getPlayers(String childrenTeam2) {
-		return getTeam(childrenTeam2).getPlayers();
+	public Set<OfflinePlayer> getPlayers(String teamName) {
+		return getTeam(teamName).getPlayers();
 	}
 
 	public void addPlayer(String teamName, OfflinePlayer player) {
@@ -150,9 +149,10 @@ public class Gameplay {
 		maxDamagePercent = config.getInt(Slender.MAX_DAMAGE_PERCENT);
 		slendermenHaveCompass = config
 				.getBoolean(Slender.SLENDERMEN_HAVE_COMPASS);
+		canRegainHealth = config.getBoolean(Slender.CAN_REGAIN_HEALTH);
+		maxRegainHealth = config.getInt(Slender.MAX_REGAIN_HEALTH);
 
 		slenderman = new Slenderman(getPlugin(), this);
-		addPagePlayerList = new ArrayList<String>();
 		childrenSeen = new ArrayList<String>();
 
 		teamManager = new TeamManager(getPlugin());
@@ -222,39 +222,6 @@ public class Gameplay {
 
 	private Team getTeam(String teamName) {
 		return teamManager.getTeam(teamName);
-	}
-
-	public void addPage(PlayerInteractEvent event) {
-		Player player = event.getPlayer();
-		if (!addPagePlayerList.contains(player.getName())) {
-			return;
-		}
-		addPagePlayerList.remove(player.getName());
-
-		Block block = event.getClickedBlock();
-
-		if (block == null) {
-			return;
-		}
-
-		BlockFace face = event.getBlockFace();
-		Integer[] coord = getPlugin().getFrameManager().placeFrame(block, face,
-				false);
-		if (coord == null) {
-			return;
-		}
-
-		getPlugin().getPageManager().addPageLocation(coord);
-
-		event.getPlayer()
-				.sendMessage(
-						ChatColor.GREEN + "New page placed at:"
-								+ ChatColor.RESET + "x=" + coord[0] + " y="
-								+ coord[1] + " z=" + coord[2]);
-	}
-
-	public void playerAddPage(Player player) {
-		addPagePlayerList.add(player.getName());
 	}
 
 	public void takePage(Player player, ItemFrame frame) {
@@ -463,15 +430,14 @@ public class Gameplay {
 		}
 	}
 
-	public void manageDead(Player player) {
-		if (player.isDead() && !teamManager.isInTeam(DEADS_TEAM, player)) {
-			teamManager.removePlayer(CHILDREN_TEAM, player);
-			teamManager.removePlayer(SLENDER_TEAM, player);
-
-			teamManager.addPlayer(DEADS_TEAM, player);
+	public void manageDead(OfflinePlayer offPlayer) {
+		if (!offPlayer.isOnline() || isInTeam(Gameplay.DEADS_TEAM, offPlayer)) {
+			return;
 		}
-		if (teamManager.isInTeam(DEADS_TEAM, player)) {
-			distanceMap.put(player.getName(), -1);
+
+		Player player = offPlayer.getPlayer();
+		if (player.isDead() && !teamManager.isInTeam(DEADS_TEAM, player)) {
+			addDeadPlayer(player);
 		}
 	}
 
@@ -488,7 +454,11 @@ public class Gameplay {
 	}
 
 	public void addDeadPlayer(Player player) {
-		distanceMap.put(player.getName(), -1);
+		deleteDammager(player);
+		distanceMap.remove(player.getName());
+
+		teamManager.removePlayer(CHILDREN_TEAM, player);
+		teamManager.removePlayer(SLENDER_TEAM, player);
 		teamManager.addPlayer(DEADS_TEAM, player);
 	}
 
@@ -502,22 +472,25 @@ public class Gameplay {
 		player.getInventory().clear();
 
 		if (plugin.gameisStarted()) {
-			String oldTeam = teamManager.getOldTeam(player);
-			if (oldTeam == null) {
-				oldTeam = Gameplay.DEADS_TEAM;
-			}
-			teamManager.addPlayer(oldTeam, player);
-			return;
+			restoreOldTeam(player);
+		} else {
+			addToNextGame(player);
 		}
+	}
+
+	private void addToNextGame(Player player) {
 		Dammager damager = new Dammager(this, player, maxHealth);
-		BukkitTask task = Utils.time(getPlugin(), damager, "damage", 5 * 20,
-				2 * 20);
+		BukkitTask task = Utils.time(plugin, damager, "damage", 5 * 20, 2 * 20);
 		damageShedulers.put(player.getName(), task);
 
 		if (!slenderman.isSlenderman(player)) {
 			teamManager.addPlayer(Gameplay.CHILDREN_TEAM, player);
 			plugin.setPlayerVisibility(player, true);
 			player.sendMessage(ChatColor.GREEN + "You are a Child");
+
+			// TODO: Create a torch.
+			ItemStack torch = new ItemStack(Material.TORCH);
+			player.setItemInHand(torch);
 		} else if (slendermenHaveCompass) {
 			ItemStack compass = new ItemStack(Material.COMPASS);
 			player.setItemInHand(compass);
@@ -526,14 +499,90 @@ public class Gameplay {
 		player.setHealth(maxHealth);
 	}
 
-	public void deleteDammager(Player player) {
-		if (damageShedulers.containsKey(player.getName())) {
-			BukkitTask task = damageShedulers.get(player.getName());
+	private void restoreOldTeam(Player player) {
+		String oldTeam = teamManager.getOldTeam(player);
+		if (oldTeam == null) {
+			oldTeam = Gameplay.DEADS_TEAM;
+		}
+		if (oldTeam == Gameplay.DEADS_TEAM) {
+			addDeadPlayer(player);
+		} else {
+			teamManager.addPlayer(oldTeam, player);
+			addToNextGame(player);
+		}
+		restoreVanish(oldTeam, player);
+	}
+
+	private void restoreVanish(String oldTeam, Player player) {
+		// TODO Auto-generated method stub
+
+	}
+
+	public void deleteDammager(OfflinePlayer player) {
+		BukkitTask task = damageShedulers.get(player.getName());
+		if (task != null) {
 			task.cancel();
 		}
 	}
 
 	public TeamManager getTeamManager() {
 		return teamManager;
+	}
+
+	public boolean canRegainHealth() {
+		return canRegainHealth;
+	}
+
+	public float getMinDamageDist() {
+		return minDamageDist;
+	}
+
+	public int getChildrenSafeDist() {
+		PageManager pageManager = plugin.getPageManager();
+		int pageLeft = pageManager.getPageLeftAmount();
+		int pageTaken = pageManager.getPageTakenAmount();
+		int totalPage = pageTaken + pageLeft;
+
+		float percent = (pageLeft * 100) / totalPage;
+		float maxDist = getMinDamageDist() * SAFE_DIST_RATIO;
+		return (int) Math.ceil((maxDist * percent) / 100);
+	}
+
+	public void playerLeave(Player player) {
+		deleteDammager(player);
+
+		String oldTeam = teamManager.getOldTeam(player);
+		removePlayer(oldTeam, player);
+
+		if (oldTeam == DEADS_TEAM) {
+			return;
+		}
+
+		Set<OfflinePlayer> teamPlayers = getPlayers(oldTeam);
+
+		if (teamPlayers.size() == 0) {
+			Utils.delay(plugin, this, "playerQuit", player.getName(), 10 * 20);
+		}
+	}
+
+	private void playerQuit(String playerName) {
+		Server server = plugin.getServer();
+		OfflinePlayer player = server.getOfflinePlayer(playerName);
+		if (player.isOnline()) {
+			return;
+		}
+		plugin.debug(playerName + " has left the game...");
+		addPlayer(DEADS_TEAM, player);
+		server.broadcastMessage(ChatColor.GRAY + "" + ChatColor.ITALIC
+				+ player.getName() + " leaves the game...");
+		// TODO: Check enough player.
+	}
+
+	public double getMaxRegainHealth() {
+		return maxRegainHealth;
+	}
+
+	public String getOldTeam(Player player) {
+		return teamManager.getOldTeam(player);
 	}
 }

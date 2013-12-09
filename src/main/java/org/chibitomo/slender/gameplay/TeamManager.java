@@ -88,8 +88,7 @@ public class TeamManager {
 	public void addPlayer(String teamName, OfflinePlayer player) {
 		Team team = mainScoreboard.getTeam(teamName);
 		team.addPlayer(player);
-		// playersTeam.put(player.getName(), teamName);
-		// plugin.debug("playerTeam=" + playersTeam);
+		playersTeam.put(player.getName(), teamName);
 
 		for (String name : scoreboards.keySet()) {
 			Scoreboard s = scoreboards.get(name);
@@ -173,7 +172,7 @@ public class TeamManager {
 		}
 	}
 
-	public boolean isInTeam(String teamName, Player player) {
+	public boolean isInTeam(String teamName, OfflinePlayer player) {
 		return getTeam(teamName).hasPlayer(player);
 	}
 
@@ -190,7 +189,7 @@ public class TeamManager {
 		return scoreboards.get(teamName);
 	}
 
-	public String getOldTeam(Player player) {
-		return playersTeam.get(player.getName());
+	public String getOldTeam(OfflinePlayer offlinePlayer) {
+		return playersTeam.get(offlinePlayer.getName());
 	}
 }

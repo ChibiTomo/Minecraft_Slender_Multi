@@ -40,7 +40,8 @@ public class CommandEventHandler extends EventHandler {
 
 		if (action.equals(Action.LEFT_CLICK_BLOCK)
 				|| action.equals(Action.RIGHT_CLICK_BLOCK)) {
-			slender.addPage(event);
+			slender.addPage(event.getPlayer(), event.getClickedBlock(),
+					event.getBlockFace());
 		}
 	}
 

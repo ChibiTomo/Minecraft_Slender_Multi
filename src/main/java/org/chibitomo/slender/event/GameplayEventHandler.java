@@ -20,8 +20,8 @@ import org.chibitomo.interfaces.IPlugin;
 import org.chibitomo.misc.Utils;
 import org.chibitomo.plugin.EventHandler;
 import org.chibitomo.slender.gameplay.Gameplay;
+import org.chibitomo.slender.gameplay.Slenderman;
 import org.chibitomo.slender.plugin.Slender;
-import org.chibitomo.slender.plugin.Slenderman;
 
 public class GameplayEventHandler extends EventHandler {
 
@@ -53,6 +53,17 @@ public class GameplayEventHandler extends EventHandler {
 			return;
 		}
 		EntityRegainHealthEvent event = (EntityRegainHealthEvent) givenEvent;
+		Entity entity = event.getEntity();
+
+		if (!(entity instanceof Player)) {
+			return;
+		}
+
+		double currentHealth = ((Player) entity).getHealth();
+		if (slender.canRegainHealth()
+				&& (slender.getMaxRegainHealth() <= currentHealth)) {
+			return;
+		}
 		event.setCancelled(true);
 	}
 
@@ -62,7 +73,20 @@ public class GameplayEventHandler extends EventHandler {
 		}
 		PlayerJoinEvent event = (PlayerJoinEvent) givenEvent;
 		Player player = event.getPlayer();
-		slender.getGameplay().addToGame(player);
+		Gameplay gameplay = slender.getGameplay();
+		gameplay.addToGame(player);
+
+		String message = "Just a spectator who's joining...";
+		if (gameplay.isInTeam(Gameplay.CHILDREN_TEAM, player)) {
+			message = "A Children just came back!";
+		}
+		if (gameplay.isInTeam(Gameplay.SLENDER_TEAM, player)) {
+			message = "Hide your soul... A Slenderman came back...";
+		}
+		// if (gameplay.isInTeam(Gameplay.PROXIES_TEAM, player)) {
+		// message = "Fear the Proxy...";
+		// }
+		event.setJoinMessage(ChatColor.GRAY + "" + ChatColor.ITALIC + message);
 	}
 
 	public void onPlayerQuitEvent(Event givenEvent) {
@@ -71,7 +95,10 @@ public class GameplayEventHandler extends EventHandler {
 		}
 		PlayerQuitEvent event = (PlayerQuitEvent) givenEvent;
 		Player player = event.getPlayer();
-		slender.getGameplay().deleteDammager(player);
+		event.setQuitMessage(ChatColor.GRAY + "" + ChatColor.ITALIC
+				+ player.getName()
+				+ " just disconnect. Maybe will he come back later...");
+		slender.getGameplay().playerLeave(player);
 	}
 
 	public void onBlockPlaceEvent(Event givenEvent) throws Exception {

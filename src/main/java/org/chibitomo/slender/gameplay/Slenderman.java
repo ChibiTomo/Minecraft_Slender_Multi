@@ -1,4 +1,4 @@
-package org.chibitomo.slender.plugin;
+package org.chibitomo.slender.gameplay;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -11,8 +11,7 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
 import org.chibitomo.misc.Utils;
-import org.chibitomo.slender.gameplay.Gameplay;
-import org.chibitomo.slender.page.PageManager;
+import org.chibitomo.slender.plugin.Slender;
 
 public class Slenderman {
 
@@ -41,8 +40,12 @@ public class Slenderman {
 	}
 
 	public boolean isSlenderman(Player player) {
-		return (player != null)
-				&& gameplay.isInTeam(Gameplay.SLENDER_TEAM, player);
+		if (player == null) {
+			return false;
+		}
+		String oldTeam = gameplay.getOldTeam(player);
+		return gameplay.isInTeam(Gameplay.SLENDER_TEAM, player)
+				|| (oldTeam == Gameplay.SLENDER_TEAM);
 	}
 
 	public void setSlenderman(Player player) {
@@ -227,15 +230,7 @@ public class Slenderman {
 	}
 
 	public void checkCanBeVisible(Player player, int nearestPlayerDist) {
-		PageManager pageManager = plugin.getPageManager();
-		int pageLeft = pageManager.getPageLeftAmount();
-		int pageTaken = pageManager.getPageTakenAmount();
-		int totalPage = pageTaken + pageLeft;
-
-		float percent = (pageLeft * 100) / totalPage;
-		int dist = (int) Math.ceil((30 * percent) / 100);
-		plugin.debug("percent=" + percent);
-		plugin.debug("dist=" + dist);
+		int dist = gameplay.getChildrenSafeDist();
 
 		boolean canBecomeVisible = true;
 		if (dist > nearestPlayerDist) {
