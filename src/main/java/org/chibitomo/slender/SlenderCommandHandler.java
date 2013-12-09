@@ -102,7 +102,7 @@ public class SlenderCommandHandler extends CommandHandler {
 	}
 
 	public boolean test(CommandSender sender, String[] args) {
-		if (!plugin.debigIsOn()) {
+		if (!plugin.debugIsOn()) {
 			return true;
 		}
 		Player p1 = (Player) sender;
