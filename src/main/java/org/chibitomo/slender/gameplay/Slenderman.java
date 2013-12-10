@@ -64,8 +64,6 @@ public class Slenderman {
 
 			player.sendMessage(ChatColor.RED + "You are the Slenderman");
 		}
-
-		plugin.getGameplay().syncScores();
 	}
 
 	public void tellTo(Player p, String msg) {

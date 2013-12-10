@@ -57,7 +57,7 @@ public class PageManager {
 
 		pages = new ArrayList<Page>();
 
-		Utils.delay(plugin, this, "placePages");
+		placePages();
 	}
 
 	public String addMessage(String msg) {
@@ -78,7 +78,7 @@ public class PageManager {
 	}
 
 	public void placePageDummies() {
-		Utils.delay(plugin, this, "placePageDummiesCallback");
+		Utils.delay(plugin, this, "placePageDummiesCallback", 10);
 	}
 
 	public void placePageDummiesCallback() {
@@ -170,7 +170,7 @@ public class PageManager {
 
 		totalPages = pages.size();
 
-		plugin.getGameplay().syncScores();
+		// plugin.getGameplay().syncScores();
 	}
 
 	public void stop() {

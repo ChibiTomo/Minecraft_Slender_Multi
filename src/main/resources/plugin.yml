@@ -1,6 +1,6 @@
-name: Slender Multi Alpha
+name: Slender Multi Beta
 main: org.chibitomo.slender.plugin.Slender
-version: 0.0.4
+version: 0.1.0
 commands:
     set_slenderman:
        description: Set the new Slenderman.

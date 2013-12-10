@@ -53,6 +53,7 @@ public class Gameplay {
 	private TeamManager teamManager;
 
 	private List<String> childrenSeen;
+	private int totalChildren;
 
 	public Gameplay(Slender plugin) {
 		this.plugin = plugin;
@@ -81,6 +82,10 @@ public class Gameplay {
 	}
 
 	public void addPlayer(String teamName, OfflinePlayer player) {
+		String oldTeam = teamManager.getOldTeam(player);
+		if (oldTeam != null) {
+			removePlayer(oldTeam, player);
+		}
 		teamManager.addPlayer(teamName, player);
 	}
 
@@ -117,11 +122,11 @@ public class Gameplay {
 		}
 
 		if (stopGame) {
-			Utils.delay(getPlugin(), getPlugin(), "gameStop");
+			Utils.delay(getPlugin(), getPlugin(), "gameStop", 10);
 			return;
 		}
 
-		Utils.delay(getPlugin(), this, "syncScores");
+		Utils.delay(getPlugin(), this, "syncScores", 10);
 	}
 
 	public void stop() {
@@ -198,16 +203,33 @@ public class Gameplay {
 	}
 
 	public void syncScores() {
-		int childrenNbr = teamManager.getTeam(CHILDREN_TEAM).getPlayers()
-				.size();
-		int deadsNbr = teamManager.getTeam(DEADS_TEAM).getPlayers().size();
 		PageManager pageManager = getPlugin().getPageManager();
+
+		int pageLeft = pageManager.getPageLeftAmount();
+		int childrenNbr = getPlayers(CHILDREN_TEAM).size();
+		int slendermenNbr = getPlayers(SLENDER_TEAM).size();
 
 		teamManager
 				.setScore(PAGE_FOUND_SCORE, pageManager.getPageTakenAmount());
-		teamManager.setScore(PAGE_LEFT_SCORE, pageManager.getPageLeftAmount());
+		teamManager.setScore(PAGE_LEFT_SCORE, pageLeft);
 		teamManager.setScore(BUDIES_LEFT_SCORE, childrenNbr - 1);
-		teamManager.setScore(SOUL_CAPTURED_SCORE, deadsNbr);
+		teamManager.setScore(SOUL_CAPTURED_SCORE, totalChildren - childrenNbr);
+		checkEndGame(pageLeft, childrenNbr, slendermenNbr);
+	}
+
+	private void checkEndGame(int pageLeft, int childrenNbr, int slendermenNbr) {
+		plugin.debug("pageLeft=" + pageLeft);
+		plugin.debug("childrenNbr=" + childrenNbr);
+		plugin.debug("slendermenNbr=" + slendermenNbr);
+		if (pageLeft < 1) {
+			endGame(false);
+		}
+		if (slendermenNbr < 1) {
+			endGame(false);
+		}
+		if (childrenNbr < 1) {
+			endGame(true);
+		}
 	}
 
 	private void populateTeams() {
@@ -218,6 +240,8 @@ public class Gameplay {
 		for (Player p : getPlugin().getServer().getOnlinePlayers()) {
 			addToGame(p);
 		}
+
+		totalChildren = getPlayers(CHILDREN_TEAM).size();
 	}
 
 	private Team getTeam(String teamName) {
@@ -230,8 +254,8 @@ public class Gameplay {
 		}
 		if (getPlugin().getPageManager().takePage(player, frame)) {
 			informPageTaken(player);
-			checkPages();
 		}
+		syncScores();
 	}
 
 	private void informPageTaken(Player player) {
@@ -254,15 +278,8 @@ public class Gameplay {
 		}
 	}
 
-	private void checkPages() {
-		if (getPlugin().getPageManager().getPageLeftAmount() < 1) {
-			endGame(false);
-		}
-		syncScores();
-	}
-
 	private void endGame(boolean slenderWon) {
-		getPlugin().gameStop();
+		plugin.gameStop();
 		String message = "Game is finished. Children won.";
 		if (slenderWon) {
 			message = "Game is finished. Slenderman won.";
@@ -422,14 +439,6 @@ public class Gameplay {
 		}
 	}
 
-	public void checkDead() {
-		Set<OfflinePlayer> players = teamManager.getTeam(CHILDREN_TEAM)
-				.getPlayers();
-		if (players.size() < 1) {
-			endGame(true);
-		}
-	}
-
 	public void manageDead(OfflinePlayer offPlayer) {
 		if (!offPlayer.isOnline() || isInTeam(Gameplay.DEADS_TEAM, offPlayer)) {
 			return;
@@ -468,38 +477,33 @@ public class Gameplay {
 
 	public void addToGame(Player player) {
 		player.setGameMode(GameMode.SURVIVAL);
-
 		player.getInventory().clear();
 
-		if (plugin.gameisStarted()) {
-			restoreOldTeam(player);
-		} else {
-			addToNextGame(player);
+		if (slenderman.isSlenderman(player)) {
+			if (slendermenHaveCompass) {
+				ItemStack compass = new ItemStack(Material.COMPASS);
+				player.setItemInHand(compass);
+			}
+			return;
 		}
-	}
 
-	private void addToNextGame(Player player) {
 		Dammager damager = new Dammager(this, player, maxHealth);
 		BukkitTask task = Utils.time(plugin, damager, "damage", 5 * 20, 2 * 20);
 		damageShedulers.put(player.getName(), task);
 
-		if (!slenderman.isSlenderman(player)) {
-			teamManager.addPlayer(Gameplay.CHILDREN_TEAM, player);
-			plugin.setPlayerVisibility(player, true);
-			player.sendMessage(ChatColor.GREEN + "You are a Child");
+		teamManager.addPlayer(Gameplay.CHILDREN_TEAM, player);
+		plugin.setPlayerVisibility(player, true);
+		player.sendMessage(ChatColor.GREEN + "You are a Child");
 
-			// TODO: Create a torch.
-			ItemStack torch = new ItemStack(Material.TORCH);
-			player.setItemInHand(torch);
-		} else if (slendermenHaveCompass) {
-			ItemStack compass = new ItemStack(Material.COMPASS);
-			player.setItemInHand(compass);
-		}
+		// TODO: Create a torch.
+		// ItemStack torch = new ItemStack(Material.TORCH);
+		// player.setItemInHand(torch);
+
 		player.setMaxHealth(maxHealth);
 		player.setHealth(maxHealth);
 	}
 
-	private void restoreOldTeam(Player player) {
+	public void restoreOldTeam(Player player) {
 		String oldTeam = teamManager.getOldTeam(player);
 		if (oldTeam == null) {
 			oldTeam = Gameplay.DEADS_TEAM;
@@ -508,9 +512,9 @@ public class Gameplay {
 			addDeadPlayer(player);
 		} else {
 			teamManager.addPlayer(oldTeam, player);
-			addToNextGame(player);
+			addToGame(player);
 		}
-		Utils.delay(plugin, this, "restoreVanish", 0);
+		Utils.delay(plugin, this, "restoreVanish");
 	}
 
 	private void restoreVanish() {
@@ -567,18 +571,11 @@ public class Gameplay {
 	public void playerLeave(Player player) {
 		deleteDammager(player);
 
-		String oldTeam = teamManager.getOldTeam(player);
-		removePlayer(oldTeam, player);
-
-		if (oldTeam == DEADS_TEAM) {
+		if (isInTeam(DEADS_TEAM, player)) {
 			return;
 		}
 
-		Set<OfflinePlayer> teamPlayers = getPlayers(oldTeam);
-
-		if (teamPlayers.size() == 0) {
-			Utils.delay(plugin, this, "playerQuit", player.getName(), 10 * 20);
-		}
+		Utils.delay(plugin, this, "playerQuit", player.getName(), 10 * 20);
 	}
 
 	private void playerQuit(String playerName) {
@@ -588,14 +585,17 @@ public class Gameplay {
 			return;
 		}
 		plugin.debug(playerName + " has left the game...");
+
+		String oldTeam = teamManager.getOldTeam(player);
+		removePlayer(oldTeam, player);
 		addPlayer(DEADS_TEAM, player);
 		server.broadcastMessage(ChatColor.GRAY + "" + ChatColor.ITALIC
 				+ player.getName() + " leaves the game...");
-		// TODO: Check enough player.
+		syncScores();
 	}
 
 	public double getMaxRegainHealth() {
-		return maxRegainHealth;
+		return (maxRegainHealth * 100) / maxHealth;
 	}
 
 	public String getOldTeam(Player player) {

@@ -123,13 +123,13 @@ public class Slender extends Plugin {
 	public void gameStart() {
 		debug("Start FrameManager");
 		frameManager.start();
-		Utils.delay(this, this, "starting");
+		Utils.delay(this, this, "starting", 10);
 	}
 
 	public void starting() {
 		debug("Start PageManager");
 		pageManager.start();
-		Utils.delay(this, this, "startingGameplay");
+		Utils.delay(this, this, "startingGameplay", 10);
 	}
 
 	public void startingGameplay() {

@@ -61,7 +61,7 @@ public class GameplayEventHandler extends EventHandler {
 
 		double currentHealth = ((Player) entity).getHealth();
 		if (slender.canRegainHealth()
-				&& (slender.getMaxRegainHealth() <= currentHealth)) {
+				&& (currentHealth <= slender.getMaxRegainHealth())) {
 			return;
 		}
 		event.setCancelled(true);
@@ -74,7 +74,7 @@ public class GameplayEventHandler extends EventHandler {
 		PlayerJoinEvent event = (PlayerJoinEvent) givenEvent;
 		Player player = event.getPlayer();
 		Gameplay gameplay = slender.getGameplay();
-		gameplay.addToGame(player);
+		gameplay.restoreOldTeam(player);
 
 		String message = "Just a spectator who's joining...";
 		if (gameplay.isInTeam(Gameplay.CHILDREN_TEAM, player)) {
@@ -221,12 +221,18 @@ public class GameplayEventHandler extends EventHandler {
 		}
 		PlayerDeathEvent event = (PlayerDeathEvent) givenEvent;
 		Player player = event.getEntity();
-		slender.getGameplay().deleteDammager(player);
-		if (slender.getGameplay().isInTeam(Gameplay.DEADS_TEAM, player)) {
+		player.getInventory().clear();
+
+		Gameplay gameplay = slender.getGameplay();
+		gameplay.deleteDammager(player);
+
+		if (gameplay.isInTeam(Gameplay.DEADS_TEAM, player)) {
 			event.setDeathMessage(ChatColor.RED + "Slenderman cought "
 					+ player.getName() + "...");
+		} else {
+			gameplay.addPlayer(Gameplay.DEADS_TEAM, player);
 		}
-		slender.getGameplay().checkDead();
+		Utils.delay(slender, gameplay, "syncScores");
 	}
 
 	private void avoidHangingBreakByEntityEventDoubleCall() {

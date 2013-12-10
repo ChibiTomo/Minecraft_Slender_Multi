@@ -1,9 +1,11 @@
 page_qty: 8
 view_dist: 30
-view_angle: 105
+view_angle: 90
 min_damage_dist: 10
 max_health: 100
 max_damage_percent: 30
 slendermen_have_compass: true
+can_regain_health: true
+max_regain_health: 50
 page_locations: []
 page_messages: []
