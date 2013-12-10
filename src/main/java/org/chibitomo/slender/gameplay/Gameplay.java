@@ -510,12 +510,28 @@ public class Gameplay {
 			teamManager.addPlayer(oldTeam, player);
 			addToNextGame(player);
 		}
-		restoreVanish(oldTeam, player);
+		Utils.delay(plugin, this, "restoreVanish", 0);
 	}
 
-	private void restoreVanish(String oldTeam, Player player) {
-		// TODO Auto-generated method stub
+	private void restoreVanish() {
+		Set<OfflinePlayer> deads = getPlayers(DEADS_TEAM);
+		Set<OfflinePlayer> slendermen = getPlayers(SLENDER_TEAM);
 
+		for (OfflinePlayer p : deads) {
+			if (p.isOnline()) {
+				plugin.setPlayerVisibility(p.getPlayer(), false);
+			}
+		}
+
+		for (OfflinePlayer p : slendermen) {
+			if (p.isOnline()) {
+				boolean isVisible = slenderman.isVisible(p.getPlayer());
+				plugin.setPlayerVisibility(p.getPlayer(), isVisible);
+				plugin.debug("Slenderman: " + p.getName());
+				plugin.debug("isVisible=" + isVisible);
+
+			}
+		}
 	}
 
 	public void deleteDammager(OfflinePlayer player) {

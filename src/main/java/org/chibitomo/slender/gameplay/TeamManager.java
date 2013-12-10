@@ -111,14 +111,14 @@ public class TeamManager {
 
 			if (teamName == Gameplay.DEADS_TEAM) {
 				plugin.setPlayerVisibility(p, false);
-				for (OfflinePlayer offP : getTeam(Gameplay.DEADS_TEAM)
-						.getPlayers()) {
-					if (!offP.isOnline()) {
-						continue;
-					}
-					offP.getPlayer().showPlayer(p);
-					p.showPlayer(offP.getPlayer());
-				}
+				// for (OfflinePlayer offP : getTeam(Gameplay.DEADS_TEAM)
+				// .getPlayers()) {
+				// if (!offP.isOnline()) {
+				// continue;
+				// }
+				// offP.getPlayer().showPlayer(p);
+				// p.showPlayer(offP.getPlayer());
+				// }
 			}
 		}
 	}
